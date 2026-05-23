@@ -1,5 +1,8 @@
 class BoardState :
     def __init__ (self):
+        #For EnPassant Move
+        self.en_passant_target = -1
+
         self.board = [
                  'x','x','x','x','x','x','x','x','x','x',
                  'x','x','x','x','x','x','x','x','x','x',
@@ -14,8 +17,8 @@ class BoardState :
                  'x','x','x','x','x','x','x','x','x','x',
                  'x','x','x','x','x','x','x','x','x','x',
                  ]
+    #--------------------------------------------------HELPER FUNCTIONS FOR PSEUDO LEGAL MOVES---------------------------------------------
 
-    #helper function for generating pseudo legal moves 
     def ray_helper_function(self,piece,direction , x , y):
         moves_list = []
         index = y*10+20+x+1
@@ -36,34 +39,26 @@ class BoardState :
             else:
                 break
 
-        #White Piece
-        if(piece>'A' and piece<'Z'):
-            if(self.board[index]>'a' and self.board[index]<'z' and self.board[index]!='x'):
-                moves_list.append(index)
-
-        #Black Piece
-        if(piece>'a' and piece<'z'):
-            if(self.board[index]>'A' and self.board[index]<'Z' ):
-                moves_list.append(index)
+        if(self.is_enemy(piece,index)):
+            moves_list.append(index)
 
         return moves_list
 
-
     def is_enemy(self,piece,index):
         #White Piece
-        if(piece>'A' and piece<'Z'):
-            if(self.board[index]>'a' and self.board[index]<'z' and self.board[index]!='x'):
+        if(piece.isupper()):
+            if(self.board[index].islower() and self.board[index]!='x'):
                 return True
 
         #Black Piece
-        if(piece>'a' and piece<'z'):
-            if(self.board[index]>'A' and self.board[index]<'Z' ):
+        if(piece.islower()):
+            if(self.board[index].isupper() ):
                 return True
                 
         return False
 
-
-    #generating pseudo legal moves 
+    #--------------------------------------------------GENERATING PSEUDO LEGAL MOVES-------------------------------------------------------
+ 
     def pseudo_legal_moves(self,piece, init_x , init_y):
         moves =[]
         index = 10*init_y+20+init_x+1
@@ -128,11 +123,10 @@ class BoardState :
 
         #FOR BLACK PAWN PSEUDO LEGAL MOVES
         elif(piece=='p'):
-            index = 10*init_y+20+init_x+1
             #Attack White Peices by Black Pawn moves
-            if (self.board[index+11]!='-' and self.board[index+11]!='x' and ('A'<self.board[index+11] and 'Z'>self.board[index+11] )):
+            if (self.board[index+11]!='-' and self.board[index+11]!='x' and self.board[index+11].isupper() ):
                 moves.append(index+11)
-            elif (self.board[index+9]!='-' and self.board[index+9]!='x' and ('A'<self.board[index+9] and 'Z'>self.board[index+9] )):
+            if (self.board[index+9]!='-' and self.board[index+9]!='x' and self.board[index+9].isupper()):
                 moves.append(index+9)
 
             if(init_y==1):
@@ -140,12 +134,13 @@ class BoardState :
                     moves.append(index+10)
                     if(self.board[index+20]=='-'):
                         moves.append(index+20)
+
             elif(init_y<=6):
                 #enPaussant check
                 if(init_y==4):
-                    if (self.board[index+11]=='-' and self.enPaussant[index+11]==True):
+                    if (self.board[index+11]=='-' and self.en_passant_target == index+11 ):
                         moves.append(index+11)
-                    if (self.board[index+9]=='-' and self.enPaussant[index+9]==True):
+                    if (self.board[index+9]=='-' and self.en_passant_target == index+9):
                         moves.append(index+9)
 
                 if(self.board[index+10]=='-'):
@@ -153,11 +148,10 @@ class BoardState :
 
         #FOR WHITE PAWN PSEUDO LEGAL MOVES
         elif(piece=='P'):
-            index = 10*init_y+20+init_x+1
             #Attack Black Peices by White Pawn moves
-            if (self.board[index-11]!='-' and self.board[index-11]!='x' and ('a'<self.board[index-11] and 'z'>self.board[index-11] )):
+            if (self.board[index-11]!='-' and self.board[index-11]!='x' and self.board[index-11].islower() ):
                 moves.append(index-11)
-            elif (self.board[index-9]!='-' and self.board[index-9]!='x' and ('a'<self.board[index-9] and 'z'>self.board[index-9] )):
+            if (self.board[index-9]!='-' and self.board[index-9]!='x' and self.board[index-9].islower()):
                 moves.append(index-9)
 
             if(init_y==6):
@@ -165,15 +159,152 @@ class BoardState :
                     moves.append(index-10)
                     if(self.board[index-20]=='-'):
                         moves.append(index-20)
+
             elif(init_y>=1):
                 #enPaussant check
                 if(init_y==3):
-                    if (self.board[index-11]=='-' and self.enPaussant[index-11]==True):
+                    if (self.board[index-11]=='-' and self.en_passant_target == index-11):
                         moves.append(index-11)
-                    if (self.board[index-9]=='-' and self.enPaussant[index-9]==True):
+                    if (self.board[index-9]=='-' and self.en_passant_target == index-9):
                         moves.append(index-9)
 
                 if(self.board[index-10]=='-'):
                     moves.append(index-10)
 
         return moves
+
+    #------------------------------------------CHECKER FUNCTION TO CHECK FOR CHECK-----------------------------------------------------------
+
+    def white_king_in_check(self):
+        index = -1
+        for i in range(120):
+            if(self.board[i]=='K'):
+                index = i 
+                break
+        king = self.board[i]
+    
+        #Queen , Rook , Bishop check logic
+        step_moves = [1,9,10,11,-1,-9,-10,-11]
+        for i in range(8):
+            step = step_moves[i]
+            pointer = index+step
+            while(self.board[pointer]!='x'):
+                if(self.is_enemy(king,pointer)==False):
+                    if(self.board[pointer].isupper()):
+                        break
+                    pointer+=step
+                else:
+                    if(self.board[pointer]=='q'):
+                        return True
+                    elif(self.board[pointer]=='r' and (step==-10 or step==-1 or step==1 or step==10)):
+                        return True
+                    elif(self.board[pointer]=='b' and (step==-11 or step==-9 or step==9 or step==11)):
+                        return True
+                    break
+
+        #Knight check logic
+        knight_moves = [-21,-19,-12,-8,8,12,19,21]
+        for i in range(8):
+            if(self.board[index+knight_moves[i]]=='n'):
+                return True
+
+        #Pawn check logic
+        if(self.board[index-11]=='p' or self.board[index-9]=='p'):
+            return True
+            
+        return False
+
+    def black_king_in_check(self):
+        index = -1
+        for i in range(120):
+            if(self.board[i]=='k'):
+                index = i 
+                break
+        king = self.board[i]
+
+        #Queen , Rook , Bishop check logic
+        step_moves = [1,9,10,11,-1,-9,-10,-11]
+        for i in range(8):
+            step = step_moves[i]
+            pointer = index+step
+            while(self.board[pointer]!='x'):
+                if(self.is_enemy(king,pointer)==False):
+                    if(self.board[pointer].islower()):
+                        break
+                    pointer+=step
+                else:   
+                    if(self.board[pointer]=='Q'):
+                        return True
+                    elif(self.board[pointer]=='R' and (step==-10 or step==-1 or step==1 or step==10)):
+                        return True
+                    elif(self.board[pointer]=='B' and (step==-11 or step==-9 or step==9 or step==11)):
+                        return True
+                    break
+
+        #Knight check logic
+        knight_moves = [-21,-19,-12,-8,8,12,19,21]
+        for i in range(8):
+            if(self.board[index+knight_moves[i]]=='N'):
+                return True
+
+        #Pawn check logic
+        if(self.board[index+11]=='P' or self.board[index+9]=='P'):
+            return True
+            
+        return False
+
+
+    def legal_moves (self,piece,init_x,init_y):
+        index = 10*init_y+20 + init_x + 1
+        pseudo = self.pseudo_legal_moves(piece,init_x,init_y)
+
+        piece_color = ""
+        if(piece.isupper()):
+            piece_color = "White"
+        elif(piece.islower()):
+            piece_color="Black"
+        
+        legal_moves = []
+        for i in range(len(pseudo)):
+            final_index = pseudo[i]
+            is_en_passant = False
+
+            #EnPassant move check
+            if(piece=='P' or piece=='p'):
+                if(final_index==self.en_passant_target):
+                    is_en_passant=True
+
+            ep_captured = '-'
+            #change the board to final state
+            captured = self.board[final_index]
+            self.board[final_index] = piece
+            self.board[index]='-'
+
+            #EnPassant is legal move
+            if(is_en_passant==True):
+                if(piece_color=="White"):
+                    ep_captured = self.board[final_index+10]
+                    self.board[final_index+10]='-'
+                elif(piece_color=="Black"):
+                    ep_captured = self.board[final_index-10]
+                    self.board[final_index-10]='-'
+
+            #check if it is creating check or not
+            if(piece_color=="White"):
+                if(self.white_king_in_check()==False):
+                    legal_moves.append(final_index)
+            elif(piece_color=="Black"):
+                if(self.black_king_in_check()==False):
+                    legal_moves.append(final_index)
+            
+            #reset the board to initial state
+            self.board[index] = piece
+            self.board[final_index] = captured
+            if(is_en_passant==True):
+                if(piece_color=="White"):
+                    self.board[self.en_passant_target+10]=ep_captured
+                elif(piece_color=="Black"):
+                    self.board[self.en_passant_target-10]=ep_captured
+        
+        return legal_moves
+
