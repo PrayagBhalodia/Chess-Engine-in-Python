@@ -11,6 +11,7 @@ screen = pygame.display.set_mode((width, height))
 square_size = width//8 
 background = pygame.image.load('Chess_images/rect-8x8.svg').convert_alpha()
 background = pygame.transform.scale(background,(width,height))
+counter = 0 
 
 #creating a dictonary for the pieces to images
 pieces={
@@ -55,10 +56,20 @@ while running :
             mouse_y = mouse_y//square_size
             initial_index = mouse_y*10+20 + mouse_x + 1
             if(Board.board[initial_index]!='x' and Board.board[initial_index]!='-'):
-                dragging = True
                 dragged_piece = Board.board[initial_index]
-                current_legal_moves = Board.legal_moves(dragged_piece,mouse_x,mouse_y)
-                Board.board[initial_index]='-'
+
+                is_valid_turn = True
+                if(counter%2==0 and dragged_piece.islower()):
+                    is_valid_turn = False
+                elif(counter%2==1 and dragged_piece.isupper()):
+                    is_valid_turn = False
+
+                if (is_valid_turn == True):
+                    current_legal_moves = Board.legal_moves(dragged_piece,mouse_x,mouse_y)
+                    Board.board[initial_index]='-'
+                    dragging = True
+                else:
+                    Board.board[initial_index]=dragged_piece
         
         #when we are dargging the piece
         elif (dragging==True and event.type == pygame.MOUSEMOTION):
@@ -70,12 +81,6 @@ while running :
             mouse_x = mouse_x//square_size
             mouse_y = mouse_y//square_size
             final_index = mouse_y*10+20 + mouse_x + 1
-
-            #set EnPassant Target
-            if(dragged_piece=='P' and final_index-initial_index==-20):
-                Board.en_passant_target = final_index+10
-            elif(dragged_piece=='p' and final_index-initial_index==+20):
-                Board.en_passant_target = final_index-10
 
             #putting the piece back to the original place to generate move_id correctly
             Board.board[initial_index] = dragged_piece
@@ -99,6 +104,8 @@ while running :
                         Board.en_passant_target = final_index + 10
                     elif (dragged_piece == 'p' and final_index - initial_index == 20):
                         Board.en_passant_target = final_index - 10
+                    counter+=1
+
             dragging = False 
 
 
