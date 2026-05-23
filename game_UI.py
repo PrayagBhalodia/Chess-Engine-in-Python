@@ -1,7 +1,7 @@
 import pygame
 #linking board.py with game_UI.py
 from board import BoardState 
-
+from move import Move
 
 pygame.init()
 
