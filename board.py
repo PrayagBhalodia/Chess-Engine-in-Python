@@ -1,3 +1,5 @@
+from move import Move
+
 class BoardState :
     def __init__ (self):
         #For EnPassant Move
@@ -268,6 +270,8 @@ class BoardState :
         for i in range(len(pseudo)):
             final_index = pseudo[i]
             is_en_passant = False
+            is_king_safe = False
+            new_move = Move(index,final_index,self.board)
 
             #EnPassant move check
             if(piece=='P' or piece=='p'):
@@ -282,6 +286,7 @@ class BoardState :
 
             #EnPassant is legal move
             if(is_en_passant==True):
+                new_move.is_en_passant = True
                 if(piece_color=="White"):
                     ep_captured = self.board[final_index+10]
                     self.board[final_index+10]='-'
@@ -292,10 +297,13 @@ class BoardState :
             #check if it is creating check or not
             if(piece_color=="White"):
                 if(self.white_king_in_check()==False):
-                    legal_moves.append(final_index)
+                    is_king_safe = True
             elif(piece_color=="Black"):
                 if(self.black_king_in_check()==False):
-                    legal_moves.append(final_index)
+                   is_king_safe = True
+            
+            if(is_king_safe):
+                legal_moves.append(new_move)
             
             #reset the board to initial state
             self.board[index] = piece

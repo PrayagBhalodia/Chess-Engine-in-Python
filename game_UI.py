@@ -39,12 +39,15 @@ drag_x = -1
 drag_y = -1
 mouse_x = -1
 mouse_y = -1
+current_legal_moves = []
 
 running = True
 while running : 
     for event in pygame.event.get():
         if(event.type == pygame.QUIT):
             running = False
+        
+        #when we pick up a piece from a square
         elif (dragging==False and event.type == pygame.MOUSEBUTTONDOWN):
             mouse_x,mouse_y=pygame.mouse.get_pos()
             drag_x,drag_y=mouse_x,mouse_y
@@ -54,16 +57,48 @@ while running :
             if(Board.board[initial_index]!='x' and Board.board[initial_index]!='-'):
                 dragging = True
                 dragged_piece = Board.board[initial_index]
+                current_legal_moves = Board.legal_moves(dragged_piece,mouse_x,mouse_y)
                 Board.board[initial_index]='-'
+        
+        #when we are dargging the piece
         elif (dragging==True and event.type == pygame.MOUSEMOTION):
             drag_x,drag_y = pygame.mouse.get_pos()
+
+        #When we put the piece in a square
         elif (dragging==True and event.type ==pygame.MOUSEBUTTONUP):
             mouse_x,mouse_y = pygame.mouse.get_pos()
             mouse_x = mouse_x//square_size
             mouse_y = mouse_y//square_size
             final_index = mouse_y*10+20 + mouse_x + 1
+
+            #set EnPassant Target
+            if(dragged_piece=='P' and final_index-initial_index==-20):
+                Board.en_passant_target = final_index+10
+            elif(dragged_piece=='p' and final_index-initial_index==+20):
+                Board.en_passant_target = final_index-10
+
+            #putting the piece back to the original place to generate move_id correctly
+            Board.board[initial_index] = dragged_piece
             if(Board.board[final_index]!='x'):
-                Board.board[final_index] = dragged_piece
+                attempted_move = Move(initial_index,final_index,Board.board)
+                if(attempted_move in current_legal_moves):
+                    list_idx = current_legal_moves.index(attempted_move)
+                    engine_move = current_legal_moves[list_idx]
+                    Board.board[final_index] = dragged_piece
+                    Board.board[initial_index] = '-' 
+
+                    #trying for enPassant
+                    if engine_move.is_en_passant == True:
+                        if dragged_piece == 'P':
+                            Board.board[final_index + 10] = '-' 
+                        elif dragged_piece == 'p':
+                            Board.board[final_index - 10] = '-'
+
+                    Board.en_passant_target = -1
+                    if (dragged_piece == 'P' and initial_index - final_index == 20):
+                        Board.en_passant_target = final_index + 10
+                    elif (dragged_piece == 'p' and final_index - initial_index == 20):
+                        Board.en_passant_target = final_index - 10
             dragging = False 
 
 
