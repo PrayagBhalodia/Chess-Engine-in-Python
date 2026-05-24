@@ -11,6 +11,8 @@ screen = pygame.display.set_mode((width, height))
 square_size = width//8 
 background = pygame.image.load('Chess_images/rect-8x8.svg').convert_alpha()
 background = pygame.transform.scale(background,(width,height))
+rect_surface = pygame.Surface((1024,1024),pygame.SRCALPHA)
+rect_surface.fill((0,0,0,192))
 counter = 0 
 
 #creating a dictonary for the pieces to images
@@ -41,6 +43,8 @@ drag_y = -1
 mouse_x = -1
 mouse_y = -1
 current_legal_moves = []
+is_pawn_promotion = False
+promotion_move = Move
 
 running = True
 while running : 
@@ -48,6 +52,42 @@ while running :
         if(event.type == pygame.QUIT):
             running = False
         
+        #Resuming the game
+        elif(is_pawn_promotion==True and event.type == pygame.MOUSEBUTTONDOWN):
+            mouse_x,mouse_y = pygame.mouse.get_pos()
+            chosen_piece='\0'
+            if(448<=mouse_y<=448+square_size):
+                if(256<=mouse_x<384):
+                    if(dragged_piece.islower()):
+                        chosen_piece='q'
+                    else:
+                        chosen_piece='Q'
+                elif(384<=mouse_x<512):
+                    if(dragged_piece.islower()):
+                        chosen_piece='r'
+                    else:
+                        chosen_piece='R'
+                elif(512<=mouse_x<640):
+                    if(dragged_piece.islower()):
+                        chosen_piece='b'
+                    else:
+                        chosen_piece='B'
+                elif(640<=mouse_x<768):
+                    if(dragged_piece.islower()):
+                        chosen_piece='n'
+                    else:
+                        chosen_piece='N'
+            promotion_move.move_id += chosen_piece
+            if(promotion_move in current_legal_moves):
+
+                list_idx = current_legal_moves.index(promotion_move)
+                engine_move = current_legal_moves[list_idx]
+
+                Board.board[promotion_move.end_idx] = chosen_piece
+                Board.board[promotion_move.start_idx] = '-' 
+                is_pawn_promotion = False
+                counter+=1
+
         #when we pick up a piece from a square
         elif (dragging==False and event.type == pygame.MOUSEBUTTONDOWN):
             mouse_x,mouse_y=pygame.mouse.get_pos()
@@ -86,25 +126,36 @@ while running :
             Board.board[initial_index] = dragged_piece
             if(Board.board[final_index]!='x'):
                 attempted_move = Move(initial_index,final_index,Board.board)
-                if(attempted_move in current_legal_moves):
-                    list_idx = current_legal_moves.index(attempted_move)
-                    engine_move = current_legal_moves[list_idx]
-                    Board.board[final_index] = dragged_piece
-                    Board.board[initial_index] = '-' 
+                
+                #Check for the pawn promotion move (as it's move_ID is different)
+                if (dragged_piece == 'P' and final_index // 10 == 2) or (dragged_piece == 'p' and final_index // 10 == 9):
+                    is_pawn_promotion = True
+                    promotion_move = attempted_move
+                    promotion_move.is_promotion = True
+                    #Pausing the game
 
-                    #trying for enPassant
-                    if engine_move.is_en_passant == True:
-                        if dragged_piece == 'P':
-                            Board.board[final_index + 10] = '-' 
-                        elif dragged_piece == 'p':
-                            Board.board[final_index - 10] = '-'
+                else:
+                    if(attempted_move in current_legal_moves):
 
-                    Board.en_passant_target = -1
-                    if (dragged_piece == 'P' and initial_index - final_index == 20):
-                        Board.en_passant_target = final_index + 10
-                    elif (dragged_piece == 'p' and final_index - initial_index == 20):
-                        Board.en_passant_target = final_index - 10
-                    counter+=1
+                        list_idx = current_legal_moves.index(attempted_move)
+                        engine_move = current_legal_moves[list_idx]
+
+                        Board.board[final_index] = dragged_piece
+                        Board.board[initial_index] = '-' 
+
+                        #trying for enPassant
+                        if engine_move.is_en_passant == True:
+                            if dragged_piece == 'P':
+                                Board.board[final_index + 10] = '-' 
+                            elif dragged_piece == 'p':
+                                Board.board[final_index - 10] = '-'
+
+                        Board.en_passant_target = -1
+                        if (dragged_piece == 'P' and initial_index - final_index == 20):
+                            Board.en_passant_target = final_index + 10
+                        elif (dragged_piece == 'p' and final_index - initial_index == 20):
+                            Board.en_passant_target = final_index - 10
+                        counter+=1
 
             dragging = False 
 
@@ -118,6 +169,17 @@ while running :
             x_pos = ((i%10)-1)*square_size
             y_pos = ((i-20)//10)* square_size
             screen.blit(piece_to_draw,(x_pos,y_pos))
+
+    if(is_pawn_promotion):
+        promotion_list = []
+        if(dragged_piece.isupper()):
+            promotion_list = ['Q','R','B','N']
+        elif(dragged_piece.islower()):
+            promotion_list = ['q','r','b','n']
+        screen.blit(rect_surface,(0,0))
+        for i in range(4):
+            screen.blit(pieces[promotion_list[i]],(256+128*i,448))
+            
 
     if dragging :
         offset = square_size // 2 

@@ -270,13 +270,21 @@ class BoardState :
         for i in range(len(pseudo)):
             final_index = pseudo[i]
             is_en_passant = False
+
+            is_pawn_promotion = False
+
             is_king_safe = False
+
             new_move = Move(index,final_index,self.board)
 
             #EnPassant move check
             if(piece=='P' or piece=='p'):
                 if(final_index==self.en_passant_target):
                     is_en_passant=True
+            
+            #Pawn Promotion check
+            if( (piece=='P' and (final_index-20)//10==0) or (piece=='p' and (final_index-20)//10==7) ):
+                is_pawn_promotion = True
 
             ep_captured = '-'
             #change the board to final state
@@ -293,6 +301,41 @@ class BoardState :
                 elif(piece_color=="Black"):
                     ep_captured = self.board[final_index-10]
                     self.board[final_index-10]='-'
+
+            #Pawn Promotion is legal move or not
+            if(is_pawn_promotion==True):
+                new_move.is_promotion = True
+                promotion=[]
+                if(piece_color=="White"):
+                    promotion = ['Q','R','B','N']
+                elif(piece_color=="Black"):
+                    promotion = ['q','r','b','n']
+    
+                for i in range(4):
+                    self.board[index] = piece
+                    self.board[final_index] = captured
+                    pawn_prom_move = Move(index,final_index,self.board)
+                    self.board[final_index]=promotion[i]
+                    self.board[index]='-'
+
+                    pawn_prom_move.pawn_promoted_to=promotion[i]
+                    pawn_prom_move.move_id+=promotion[i]
+                    pawn_prom_move.is_promotion=True
+
+                    is_king_safe = False
+                    if(piece_color=="White"):
+                        if(self.white_king_in_check()==False):
+                            is_king_safe = True
+                    elif(piece_color=="Black"):
+                        if(self.black_king_in_check()==False):
+                            is_king_safe = True
+            
+                    if(is_king_safe):
+                        legal_moves.append(pawn_prom_move)
+                    
+                self.board[index] = piece
+                self.board[final_index] = captured
+                continue
 
             #check if it is creating check or not
             if(piece_color=="White"):
