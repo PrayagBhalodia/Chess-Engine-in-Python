@@ -134,6 +134,46 @@ while running :
                     promotion_move.is_promotion = True
                     #Pausing the game
 
+                #Performing Black King's Queen Side Castling if Conditions are correct
+                elif(dragged_piece=='k' and final_index == 23 and initial_index == 25 and Board.black_queen_side_castle==True):
+                    Board.board[23]='k'
+                    Board.board[25]='-'
+                    Board.board[24]='r'
+                    Board.board[21]='-'
+                    Board.r1move=True
+                    Board.black_king_move=True
+                    counter+=1
+
+                #Performing Black King's King Side Castling if Conditions are correct
+                elif(dragged_piece=='k' and final_index == 27 and initial_index == 25 and Board.black_king_side_castle==True):
+                    Board.board[27]='k'
+                    Board.board[25]='-'
+                    Board.board[28]='-'
+                    Board.board[26]='r'
+                    Board.r2move=True
+                    Board.black_king_move=True
+                    counter+=1
+
+                #Performing White King's Queen Side Castling if Conditions are correct
+                elif(dragged_piece=='K' and final_index == 93 and initial_index == 95 and Board.white_queen_side_castle==True):
+                    Board.board[93]='K'
+                    Board.board[95]='-'
+                    Board.board[94]='R'
+                    Board.board[91]='-'
+                    Board.R1move=True
+                    Board.white_king_move=True
+                    counter+=1
+
+                #Performing White King's King Side Castling if Conditions are correct
+                elif(dragged_piece=='K' and final_index == 97 and initial_index == 95 and Board.white_king_side_castle==True):
+                    Board.board[97]='K'
+                    Board.board[95]='-'
+                    Board.board[98]='-'
+                    Board.board[96]='R'
+                    Board.R2move=True
+                    Board.white_king_move=True
+                    counter+=1
+
                 else:
                     if(attempted_move in current_legal_moves):
 
@@ -150,11 +190,25 @@ while running :
                             elif dragged_piece == 'p':
                                 Board.board[final_index - 10] = '-'
 
+                        #For EnPaussant Changes
                         Board.en_passant_target = -1
                         if (dragged_piece == 'P' and initial_index - final_index == 20):
                             Board.en_passant_target = final_index + 10
                         elif (dragged_piece == 'p' and final_index - initial_index == 20):
                             Board.en_passant_target = final_index - 10
+                        #For Castling Changes
+                        elif(dragged_piece == 'r' and initial_index == 21 and Board.r1move==False):
+                            Board.r1move=True
+                        elif(dragged_piece == 'r' and initial_index == 28 and Board.r2move==False):
+                            Board.r2move=True
+                        elif(dragged_piece == 'R' and initial_index == 91 and Board.R1move==False):
+                            Board.R1move=True
+                        elif(dragged_piece == 'R' and initial_index == 98 and Board.R2move==False):
+                            Board.R2move=True
+                        elif(dragged_piece =='k' and initial_index == 25 and Board.black_king_move==False):
+                            Board.black_king_move=True
+                        elif(dragged_piece =='K' and initial_index == 95 and Board.white_king_move==False):
+                            Board.white_king_move=True
                         counter+=1
 
             dragging = False 

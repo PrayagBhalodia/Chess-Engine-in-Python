@@ -5,6 +5,19 @@ class BoardState :
         #For EnPassant Move
         self.en_passant_target = -1
 
+        #For Castle Move
+        self.r1move = False
+        self.r2move = False
+        self.R1move = False
+        self.R2move = False
+        self.black_king_move = False
+        self.white_king_move = False
+        self.black_king_side_castle = False
+        self.white_king_side_castle = False
+        self.black_queen_side_castle = False
+        self.white_queen_side_castle = False
+
+
         self.board = [
                  'x','x','x','x','x','x','x','x','x','x',
                  'x','x','x','x','x','x','x','x','x','x',
@@ -122,7 +135,7 @@ class BoardState :
                 moves.append(index-9)
             if(self.board[index+9]!='x' and (self.board[index+9]=='-' or self.is_enemy(piece,index+9))):
                 moves.append(index+9)
-
+            
         #FOR BLACK PAWN PSEUDO LEGAL MOVES
         elif(piece=='p'):
             #Attack White Peices by Black Pawn moves
@@ -255,6 +268,7 @@ class BoardState :
             
         return False
 
+#-----------------------------------------------LEGAL MOVES GENERATOR---------------------------------------------------------------
 
     def legal_moves (self,piece,init_x,init_y):
         index = 10*init_y+20 + init_x + 1
@@ -266,6 +280,73 @@ class BoardState :
         elif(piece.islower()):
             piece_color="Black"
         
+        #Check for Black King's Queen Side Castle
+        if(piece=='k' and self.r1move == False and self.black_king_move == False and 
+           self.board[22]=='-' and self.board[23]=='-' and self.board[24]=='-' and self.black_king_in_check()==False):
+            self.board[25]='-'
+            self.board[24]='k'
+            is_24_check = self.black_king_in_check()
+            self.board[24]='-'
+            self.board[23]='k'
+            is_23_check = self.black_king_in_check()
+            if(is_24_check==False and is_23_check==False):
+                self.black_queen_side_castle = True
+            self.board[23] = '-'
+            self.board[25] = 'k'
+        else:
+            self.black_queen_side_castle = False
+
+        #Check for Black King's King Side Castle
+        if(piece=='k' and self.r2move==False and self.black_king_move == False and
+           self.board[26]=='-' and self.board[27]=='-' and self.black_king_in_check()==False):
+            self.board[25]='-'
+            self.board[26]='k'
+            is_26_check=self.black_king_in_check()
+            self.board[26]='-'
+            self.board[27]='k'
+            is_27_check = self.black_king_in_check()
+            self.board[25]='-'
+            if(is_27_check==False and is_26_check==False):
+                self.black_king_side_castle=True
+            
+            self.board[25]='K'
+            self.board[27]='-'
+        else:
+            self.black_king_side_castle=False
+
+        #Check for White King's Queen Side Castle
+        if(piece=='K' and self.R1move == False and self.white_king_move == False and 
+           self.board[92]=='-' and self.board[93]=='-' and self.board[94]=='-' and self.white_king_in_check()==False):
+            self.board[95]='-'
+            self.board[94]='K'
+            is_94_check = self.white_king_in_check()
+            self.board[94]='-'
+            self.board[93]='K'
+            is_93_check = self.white_king_in_check()
+            self.board[95]='-'
+            if(is_94_check==False and is_93_check==False):
+                self.white_queen_side_castle = True
+            self.board[93] = '-'
+            self.board[95] = 'K'
+        else:
+            self.white_queen_side_castle = False
+
+        #Check for White King's King Side Castle
+        if(piece=='K' and self.r2move==False and self.white_king_move == False and
+           self.board[96]=='-' and self.board[97]=='-' and self.white_king_in_check()==False):
+            self.board[95]='-'
+            self.board[96]='K'
+            is_96_check=self.white_king_in_check()
+            self.board[96]='-'
+            self.board[97]='K'
+            is_97_check = self.white_king_in_check()
+            if(is_97_check==False and is_96_check==False):
+                self.white_king_side_castle=True
+            self.board[95]='K'
+            self.board[97]='-'
+        else:
+            self.white_king_side_castle=False
+
         legal_moves = []
         for i in range(len(pseudo)):
             final_index = pseudo[i]
