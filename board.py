@@ -32,7 +32,20 @@ class BoardState :
                  'x','x','x','x','x','x','x','x','x','x',
                  'x','x','x','x','x','x','x','x','x','x',
                  ]
-    #--------------------------------------------------HELPER FUNCTIONS FOR PSEUDO LEGAL MOVES---------------------------------------------
+        
+#--------------------------------------------------BOARD TO STRING HELPER FUNCTION -------------------------------------------------------------
+    def board_to_string(self):
+        board_string = ""
+        for i in range (120):
+            if(self.board[i]!='x'):
+                if(self.board[i]=='-'):
+                    board_string+="0"
+                else:
+                    board_string+=self.board[i]
+        board_string+=str(self.en_passant_target)+str(self.white_king_side_castle)+str(self.black_king_side_castle)+str(self.black_queen_side_castle)+str(self.white_queen_side_castle)
+        return board_string
+
+#---------------------------------------------------HELPER FUNCTIONS FOR PSEUDO LEGAL MOVES---------------------------------------------
 
     def ray_helper_function(self,piece,direction , x , y):
         moves_list = []
@@ -72,7 +85,7 @@ class BoardState :
                 
         return False
 
-    #--------------------------------------------------GENERATING PSEUDO LEGAL MOVES-------------------------------------------------------
+#---------------------------------------------------GENERATING PSEUDO LEGAL MOVES-------------------------------------------------------
  
     def pseudo_legal_moves(self,piece, init_x , init_y):
         moves =[]
@@ -188,7 +201,7 @@ class BoardState :
 
         return moves
 
-    #------------------------------------------CHECKER FUNCTION TO CHECK FOR CHECK-----------------------------------------------------------
+#-------------------------------------------CHECKER FUNCTION TO CHECK FOR CHECK-----------------------------------------------------------
 
     def white_king_in_check(self):
         index = -1

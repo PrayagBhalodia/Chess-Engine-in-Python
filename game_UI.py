@@ -14,8 +14,19 @@ background = pygame.transform.scale(background,(width,height))
 rect_surface = pygame.Surface((1024,1024),pygame.SRCALPHA)
 rect_surface.fill((0,0,0,192))
 counter = 0 
+game_is_over = False
+game_over_font = pygame.font.SysFont(None, 48) 
+winning_string = "" 
+winning_rect = pygame.Surface((512,256))
+TEXT_COLOR = (255, 255, 255)
 
-#creating a dictonary for the pieces to images
+#For 3 Moves Repetition Rule
+hash_board = dict()
+
+#For 50 Moves Tie 
+half_move_counter = 0 
+
+#Creating a Dictonary for the Pieces to Images
 pieces={
     'R' : pygame.image.load('Chess_images/rook-w.svg').convert_alpha(),
     'r' : pygame.image.load('Chess_images/rook-b.svg').convert_alpha(),
@@ -87,9 +98,10 @@ while running :
                 Board.board[promotion_move.start_idx] = '-' 
                 is_pawn_promotion = False
                 counter+=1
+                half_move_counter = 0 
 
         #when we pick up a piece from a square
-        elif (dragging==False and event.type == pygame.MOUSEBUTTONDOWN):
+        elif (game_is_over==False and dragging==False and event.type == pygame.MOUSEBUTTONDOWN):
             mouse_x,mouse_y=pygame.mouse.get_pos()
             drag_x,drag_y=mouse_x,mouse_y
             mouse_x = mouse_x//square_size
@@ -112,11 +124,11 @@ while running :
                     Board.board[initial_index]=dragged_piece
         
         #when we are dargging the piece
-        elif (dragging==True and event.type == pygame.MOUSEMOTION):
+        elif (game_is_over == False and dragging==True and event.type == pygame.MOUSEMOTION):
             drag_x,drag_y = pygame.mouse.get_pos()
 
         #When we put the piece in a square
-        elif (dragging==True and event.type ==pygame.MOUSEBUTTONUP):
+        elif (game_is_over==False and dragging==True and event.type ==pygame.MOUSEBUTTONUP):
             mouse_x,mouse_y = pygame.mouse.get_pos()
             mouse_x = mouse_x//square_size
             mouse_y = mouse_y//square_size
@@ -143,6 +155,7 @@ while running :
                     Board.r1move=True
                     Board.black_king_move=True
                     counter+=1
+                    half_move_counter += 1
 
                 #Performing Black King's King Side Castling if Conditions are correct
                 elif(dragged_piece=='k' and final_index == 27 and initial_index == 25 and Board.black_king_side_castle==True):
@@ -153,6 +166,7 @@ while running :
                     Board.r2move=True
                     Board.black_king_move=True
                     counter+=1
+                    half_move_counter += 1
 
                 #Performing White King's Queen Side Castling if Conditions are correct
                 elif(dragged_piece=='K' and final_index == 93 and initial_index == 95 and Board.white_queen_side_castle==True):
@@ -163,6 +177,7 @@ while running :
                     Board.R1move=True
                     Board.white_king_move=True
                     counter+=1
+                    half_move_counter += 1
 
                 #Performing White King's King Side Castling if Conditions are correct
                 elif(dragged_piece=='K' and final_index == 97 and initial_index == 95 and Board.white_king_side_castle==True):
@@ -173,12 +188,15 @@ while running :
                     Board.R2move=True
                     Board.white_king_move=True
                     counter+=1
+                    half_move_counter += 1   
 
                 else:
                     if(attempted_move in current_legal_moves):
 
                         list_idx = current_legal_moves.index(attempted_move)
                         engine_move = current_legal_moves[list_idx]
+                        
+                        captured = Board.board[final_index]
 
                         Board.board[final_index] = dragged_piece
                         Board.board[initial_index] = '-' 
@@ -209,8 +227,59 @@ while running :
                             Board.black_king_move=True
                         elif(dragged_piece =='K' and initial_index == 95 and Board.white_king_move==False):
                             Board.white_king_move=True
-                        counter+=1
 
+                        #For 3 Move Repetation Rule
+                        board_string = Board.board_to_string()
+                        board_string+=str(counter%2)
+                        hash_board[board_string] = hash_board.get(board_string, 0) + 1
+                        if(hash_board[board_string]==3):
+                            game_is_over = True
+                            winning_string = "Draw by 3-Move Repetation Rule"
+                        counter+=1
+                        half_move_counter+=1
+
+                        #For 50 Move Rule 
+                        if(dragged_piece=='p' or dragged_piece == 'P' or captured!='-'):
+                            half_move_counter=0
+                        if(half_move_counter==100):
+                            game_is_over=True
+                            winning_string = "Draw by 50-Move Rule"
+
+                #For Checking if Game Is Over 
+                if(counter%2==0):
+                    there_are_legal_moves = False
+                    for i in range(120):
+                        if(Board.board[i].isupper()==True):
+                            x = (i % 10) - 1
+                            y = (i - 20) // 10
+                            list_of_legal_moves = Board.legal_moves(Board.board[i],x,y)
+                            if(len(list_of_legal_moves) >0 ):
+                                there_are_legal_moves = True
+                                break
+                    if(there_are_legal_moves == False):
+                        game_is_over = True
+                        if(Board.white_king_in_check() == True):
+                            winning_string = "Black Wins"
+                        elif(Board.white_king_in_check() == False):
+                            winning_string = "Stalemate"
+
+                if(counter%2==1):
+                    there_are_legal_moves = False
+                    for i in range(120):
+                        if(Board.board[i].islower()==True and Board.board[i]!='x'):
+                            x = (i % 10) - 1
+                            y = (i - 20) // 10
+                            list_of_legal_moves = Board.legal_moves(Board.board[i],x,y)
+                            if(len(list_of_legal_moves) >0 ):
+                                there_are_legal_moves = True
+                                break
+                    if(there_are_legal_moves == False):
+                        game_is_over = True
+                        if(Board.black_king_in_check() == True):
+                            winning_string = "White Wins"
+                        elif(Board.black_king_in_check() == False):
+                            winning_string = "stalemate"
+                                
             dragging = False 
 
 
@@ -234,6 +303,14 @@ while running :
         for i in range(4):
             screen.blit(pieces[promotion_list[i]],(256+128*i,448))
             
+    if(game_is_over==True):
+        screen.blit(rect_surface,(0,0))
+        screen.blit(winning_rect,(256,384))
+        text_surface = game_over_font.render(winning_string, True, TEXT_COLOR)
+        text_rect = text_surface.get_rect()
+        win_box_bounds = winning_rect.get_rect(topleft=(256,384))
+        text_rect.center = win_box_bounds.center
+        screen.blit(text_surface, text_rect)
 
     if dragging :
         offset = square_size // 2 
