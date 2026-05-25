@@ -330,6 +330,8 @@ class BoardState :
         elif(piece.islower()):
             piece_color="Black"
         
+        legal_moves = []
+
         #Check for Black King's Queen Side Castle
         if(piece=='k' and self.r1move == False and self.black_king_move == False and 
            self.board[22]=='-' and self.board[23]=='-' and self.board[24]=='-' and self.black_king_in_check()==False):
@@ -339,10 +341,13 @@ class BoardState :
             self.board[24]='-'
             self.board[23]='k'
             is_23_check = self.black_king_in_check()
-            if(is_24_check==False and is_23_check==False):
-                self.black_queen_side_castle = True
             self.board[23] = '-'
             self.board[25] = 'k'
+            if(is_24_check==False and is_23_check==False):
+                self.black_queen_side_castle = True
+                castled_move = Move(25,23,self.board)
+                castled_move.is_castled=True
+                legal_moves.append(castled_move)
         else:
             self.black_queen_side_castle = False
 
@@ -355,12 +360,14 @@ class BoardState :
             self.board[26]='-'
             self.board[27]='k'
             is_27_check = self.black_king_in_check()
-            self.board[25]='-'
+            self.board[25]='k'
+            self.board[27]='-'
             if(is_27_check==False and is_26_check==False):
                 self.black_king_side_castle=True
+                castled_move = Move(25,27,self.board)
+                castled_move.is_castled=True
+                legal_moves.append(castled_move)
             
-            self.board[25]='K'
-            self.board[27]='-'
         else:
             self.black_king_side_castle=False
 
@@ -373,11 +380,13 @@ class BoardState :
             self.board[94]='-'
             self.board[93]='K'
             is_93_check = self.white_king_in_check()
-            self.board[95]='-'
-            if(is_94_check==False and is_93_check==False):
-                self.white_queen_side_castle = True
             self.board[93] = '-'
             self.board[95] = 'K'
+            if(is_94_check==False and is_93_check==False):
+                self.white_queen_side_castle = True
+                castled_move = Move(95,93,self.board)
+                castled_move.is_castled=True
+                legal_moves.append(castled_move)
         else:
             self.white_queen_side_castle = False
 
@@ -390,14 +399,16 @@ class BoardState :
             self.board[96]='-'
             self.board[97]='K'
             is_97_check = self.white_king_in_check()
-            if(is_97_check==False and is_96_check==False):
-                self.white_king_side_castle=True
             self.board[95]='K'
             self.board[97]='-'
+            if(is_97_check==False and is_96_check==False):
+                self.white_king_side_castle=True
+                castled_move = Move(95,97,self.board)
+                castled_move.is_castled=True
+                legal_moves.append(castled_move)
         else:
             self.white_king_side_castle=False
 
-        legal_moves = []
         for i in range(len(pseudo)):
             final_index = pseudo[i]
             is_en_passant = False
