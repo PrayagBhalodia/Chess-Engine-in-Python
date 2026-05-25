@@ -9,11 +9,11 @@ width = 1024
 height = 1024
 screen = pygame.display.set_mode((width, height))
 square_size = width//8 
-background = pygame.image.load('Chess_images/rect-8x8.svg').convert_alpha()
-background = pygame.transform.scale(background,(width,height))
 rect_surface = pygame.Surface((1024,1024),pygame.SRCALPHA)
 rect_surface.fill((0,0,0,192))
-counter = 0 
+dragged_piece = '-'
+
+#for Game Over State
 game_is_over = False
 game_over_font = pygame.font.SysFont(None, 48) 
 winning_string = "" 
@@ -23,8 +23,49 @@ TEXT_COLOR = (255, 255, 255)
 #For 3 Moves Repetition Rule
 hash_board = dict()
 
-#For 50 Moves Tie 
-half_move_counter = 0 
+#Defining King in Check State Variables
+black_king_under_check = False
+white_king_under_check = False
+
+def square_coloring(init_x,init_y):
+    pygame.draw.circle(screen,(176,224,230),(init_x*square_size+64,init_y*square_size+64),56)
+    index = init_y*10 + 20 + init_x + 1
+    if(dragged_piece=='k' and Board.black_king_side_castle==True and index==25):
+        pygame.draw.circle(screen,(255,255,224),(6*square_size+64,64),56)
+    if(dragged_piece=='k' and Board.black_queen_side_castle==True and index==25):
+        pygame.draw.circle(screen,(255,255,224),(2*square_size+64,64),56)
+    if(dragged_piece=='K' and Board.white_king_side_castle==True and index ==95):
+        pygame.draw.circle(screen,(255,255,224),(6*square_size+64,7*square_size+64),56)
+    if(dragged_piece=='K' and Board.white_queen_side_castle==True and index ==95):
+        pygame.draw.circle(screen,(255,255,224),(2*square_size+64,7*square_size+64),56)
+    for i in range(len(current_legal_moves)):
+        index = current_legal_moves[i].end_idx
+        x = index%10 - 1 
+        y = (index-20)//10
+        pygame.draw.circle(screen,(255,255,224),(x*square_size+64,y*square_size+64),56)
+    
+
+def coloring_check():
+    rectangle = pygame.Surface((square_size,square_size))
+    rectangle.fill((255,204,203))
+    if(black_king_under_check==True):
+        index = - 1
+        for i in range(120):
+            if(Board.board[i]=='k'):
+                index = i 
+                break
+        x = index%10 - 1 
+        y = (index-20)//10
+        screen.blit(rectangle,(x*square_size,y*square_size))
+    elif(white_king_under_check==True):
+        index = - 1
+        for i in range(120):
+            if(Board.board[i]=='K'):
+                index = i 
+                break
+        x = index%10 - 1 
+        y = (index-20)//10
+        screen.blit(rectangle,(x*square_size,y*square_size))
 
 #Creating a Dictonary for the Pieces to Images
 pieces={
@@ -97,8 +138,9 @@ while running :
                 Board.board[promotion_move.end_idx] = chosen_piece
                 Board.board[promotion_move.start_idx] = '-' 
                 is_pawn_promotion = False
-                counter+=1
-                half_move_counter = 0 
+                Board.counter+=1
+                Board.half_move_counter = 0 
+                Board.save_state()
 
         #when we pick up a piece from a square
         elif (game_is_over==False and dragging==False and event.type == pygame.MOUSEBUTTONDOWN):
@@ -111,9 +153,9 @@ while running :
                 dragged_piece = Board.board[initial_index]
 
                 is_valid_turn = True
-                if(counter%2==0 and dragged_piece.islower()):
+                if(Board.counter%2==0 and dragged_piece.islower()):
                     is_valid_turn = False
-                elif(counter%2==1 and dragged_piece.isupper()):
+                elif(Board.counter%2==1 and dragged_piece.isupper()):
                     is_valid_turn = False
 
                 if (is_valid_turn == True):
@@ -154,8 +196,9 @@ while running :
                     Board.board[21]='-'
                     Board.r1move=True
                     Board.black_king_move=True
-                    counter+=1
-                    half_move_counter += 1
+                    Board.counter+=1
+                    Board.half_move_counter += 1
+                    Board.save_state()
 
                 #Performing Black King's King Side Castling if Conditions are correct
                 elif(dragged_piece=='k' and final_index == 27 and initial_index == 25 and Board.black_king_side_castle==True):
@@ -165,8 +208,9 @@ while running :
                     Board.board[26]='r'
                     Board.r2move=True
                     Board.black_king_move=True
-                    counter+=1
-                    half_move_counter += 1
+                    Board.counter+=1
+                    Board.half_move_counter += 1
+                    Board.save_state()
 
                 #Performing White King's Queen Side Castling if Conditions are correct
                 elif(dragged_piece=='K' and final_index == 93 and initial_index == 95 and Board.white_queen_side_castle==True):
@@ -176,8 +220,9 @@ while running :
                     Board.board[91]='-'
                     Board.R1move=True
                     Board.white_king_move=True
-                    counter+=1
-                    half_move_counter += 1
+                    Board.counter+=1
+                    Board.half_move_counter += 1
+                    Board.save_state()
 
                 #Performing White King's King Side Castling if Conditions are correct
                 elif(dragged_piece=='K' and final_index == 97 and initial_index == 95 and Board.white_king_side_castle==True):
@@ -187,8 +232,9 @@ while running :
                     Board.board[96]='R'
                     Board.R2move=True
                     Board.white_king_move=True
-                    counter+=1
-                    half_move_counter += 1   
+                    Board.counter+=1
+                    Board.half_move_counter += 1
+                    Board.save_state()   
 
                 else:
                     if(attempted_move in current_legal_moves):
@@ -230,23 +276,36 @@ while running :
 
                         #For 3 Move Repetation Rule
                         board_string = Board.board_to_string()
-                        board_string+=str(counter%2)
+                        board_string+=str(Board.counter%2)
                         hash_board[board_string] = hash_board.get(board_string, 0) + 1
                         if(hash_board[board_string]==3):
                             game_is_over = True
                             winning_string = "Draw by 3-Move Repetation Rule"
-                        counter+=1
-                        half_move_counter+=1
+                        Board.counter+=1
+                        Board.half_move_counter+=1
+                        Board.save_state()
 
                         #For 50 Move Rule 
                         if(dragged_piece=='p' or dragged_piece == 'P' or captured!='-'):
-                            half_move_counter=0
-                        if(half_move_counter==100):
+                            Board.half_move_counter=0
+                        if(Board.half_move_counter==100):
                             game_is_over=True
                             winning_string = "Draw by 50-Move Rule"
 
                 #For Checking if Game Is Over 
-                if(counter%2==0):
+                if(Board.counter%2==0):
+                    #Checking if the White King is in Check or not
+                    if(Board.white_king_in_check()==True):
+                        white_king_under_check = True
+                    else:
+                        white_king_under_check = False
+
+                    #Checking if the Black King is in Check or not
+                    if(Board.black_king_in_check()==True):
+                        black_king_under_check = True
+                    else:
+                        black_king_under_check = False
+                    there_are_legal_moves = False
                     there_are_legal_moves = False
                     for i in range(120):
                         if(Board.board[i].isupper()==True):
@@ -263,8 +322,20 @@ while running :
                         elif(Board.white_king_in_check() == False):
                             winning_string = "Stalemate"
 
-                if(counter%2==1):
+                if(Board.counter%2==1):
+                    #Checking if the Black King is in Check or not
+                    if(Board.black_king_in_check()==True):
+                        black_king_under_check = True
+                    else:
+                        black_king_under_check = False
                     there_are_legal_moves = False
+
+                    #Checking if the White King is in Check or not
+                    if(Board.white_king_in_check()==True):
+                        white_king_under_check = True
+                    else:
+                        white_king_under_check = False
+
                     for i in range(120):
                         if(Board.board[i].islower()==True and Board.board[i]!='x'):
                             x = (i % 10) - 1
@@ -282,8 +353,37 @@ while running :
                                 
             dragging = False 
 
+        # KEYBOARD EVENTS (UNDO / REDO)
+        elif (event.type == pygame.KEYDOWN):
+            #If UNDO (Left Arrow Key or Ctrl+z)
+            if (event.key == pygame.K_LEFT or (event.key == pygame.K_z and (pygame.key.get_mods() & pygame.KMOD_CTRL))):
+                if Board.history_pointer > 0:
+                    Board.history_pointer -= 1
+                    Board.load_state()
+            # If REDO (Right Arrow Key or Ctrl+y)
+            elif (event.key == pygame.K_RIGHT or (event.key == pygame.K_y and (pygame.key.get_mods() & pygame.KMOD_CTRL))):
+                if Board.history_pointer < len(Board.game_history) - 1:
+                    Board.history_pointer += 1
+                    Board.load_state()
 
-    screen.blit(background,(0,0))
+
+    for x in range (8):
+        for y in range (8) :
+            x_coordinate = x * square_size
+            y_coordinate = y * square_size
+            rect = pygame.Surface((square_size,square_size))
+            if((x+y)%2==0):
+                rect.fill((255,255,255))
+            else:
+                rect.fill((170,170,170))
+            screen.blit(rect,(x_coordinate,y_coordinate))
+
+    if(dragging == True):
+        square_coloring(mouse_x,mouse_y)
+
+    if(black_king_under_check == True or white_king_under_check == True):
+        coloring_check()
+
     for i in range(120):
         if(Board.board[i]=='x'):
             continue
