@@ -1,7 +1,8 @@
 import pygame
 from board import BoardState 
 from move import Move
-from SmartMoveFinder import random_AI_moves 
+from SmartMoveFinder import random_AI_moves
+from SmartMoveFinder import findBestMove 
 
 pygame.init()
 
@@ -186,6 +187,7 @@ def move_performer(engine_move):
         game_is_over=True
         winning_string = "Draw by 50-Move Rule"
 
+    Board.save_state()
     is_game_over()
 
 def is_game_over():
@@ -387,11 +389,7 @@ while running :
             dragging = False 
 
         elif(game_is_over==False and not is_human_move):
-            ai_idx = random_AI_moves(list_of_legal_moves)
-            if(ai_idx == -1):
-                game_is_over=True
-            else :    
-                move_performer(list_of_legal_moves[ai_idx])
+            move_performer(findBestMove(Board))
 
     for x in range (8):
         for y in range (8) :

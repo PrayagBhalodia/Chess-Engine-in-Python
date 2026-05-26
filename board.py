@@ -34,6 +34,94 @@ class BoardState :
                  ]
         self.counter = 0 
         self.half_move_counter = 0
+        self.counter = 0 
+        self.half_move_counter = 0
+        self.game_history = []
+        self.history_pointer = 0
+        self.save_state()
+
+#------------------------------------------FUNCTION TO SAVE THE THE HISTORY FOR UNDO/REDO-----------------------------------------------------
+    def save_state(self):
+        current_state = {
+            "board" : self.board.copy(),
+            "ep_target" : self.en_passant_target,
+            "castling" : [
+                self.r1move , self.r2move , self.R1move , self.R2move , 
+                self.black_king_move , self.white_king_move ,
+                self.black_king_side_castle, self.white_king_side_castle,
+                self.black_queen_side_castle, self.white_queen_side_castle
+            ],
+            "half_moves": self.half_move_counter,
+            "turn_counter": self.counter
+        }
+        self.game_history = self.game_history[:self.history_pointer + 1]
+        self.game_history.append(current_state)
+        self.history_pointer += 1
+
+    def load_state(self):
+        state = self.game_history[self.history_pointer]
+        self.board = state["board"].copy()
+        self.en_passant_target = state["ep_target"]
+        
+        flags = state["castling"]
+        self.r1move, self.r2move, self.R1move, self.R2move = flags[0], flags[1], flags[2], flags[3]
+        self.black_king_move, self.white_king_move = flags[4], flags[5]
+        self.black_king_side_castle, self.white_king_side_castle = flags[6], flags[7]
+        self.black_queen_side_castle, self.white_queen_side_castle = flags[8], flags[9]
+
+        self.half_move_counter = state["half_moves"]
+        self.counter = state["turn_counter"]
+
+#-------------------------------------------------------------FOR AI TO MAKE AN UNMAKE A MOVE-----------------------------------------------------------------------------
+
+    def make_ai_move(self, engine_move):
+        # 1. Save the state before touching anything
+        self.save_state()
+        
+        initial = engine_move.start_idx
+        final = engine_move.end_idx
+        piece_to_move = engine_move.piece_moved
+        
+        # 2. Handle Castling Teleports
+        if engine_move.is_castled:
+            self.board[final] = piece_to_move
+            self.board[initial] = '-'
+            if final == 23: # Black Queen-Side
+                self.board[24] = 'r'; self.board[21] = '-'
+            elif final == 27: # Black King-Side
+                self.board[26] = 'r'; self.board[28] = '-'
+            elif final == 93: # White Queen-Side
+                self.board[94] = 'R'; self.board[91] = '-'
+            elif final == 97: # White King-Side
+                self.board[96] = 'R'; self.board[98] = '-'
+                
+        # 3. Handle Pawn Promotion
+        elif engine_move.is_promotion:
+            self.board[final] = engine_move.pawn_promoted_to
+            self.board[initial] = '-'
+            
+        # 4. Handle En Passant Deletions
+        elif engine_move.is_en_passant:
+            self.board[final] = piece_to_move
+            self.board[initial] = '-'
+            if piece_to_move == 'P':
+                self.board[final + 10] = '-'
+            elif piece_to_move == 'p':
+                self.board[final - 10] = '-'
+                
+        # 5. Normal Moves
+        else: 
+            self.board[final] = piece_to_move
+            self.board[initial] = '-'
+            
+        # 6. Tick the clock so the AI knows whose turn it is next
+        self.counter += 1
+
+
+    def unmake_ai_move(self):
+        # Instantly rewind time using your history array
+        self.history_pointer -= 1
+        self.load_state()
 
 #--------------------------------------------------BOARD TO STRING HELPER FUNCTION -------------------------------------------------------------
     def board_to_string(self):
@@ -465,4 +553,3 @@ class BoardState :
                     self.board[self.en_passant_target-10]=ep_captured
         
         return legal_moves
-
