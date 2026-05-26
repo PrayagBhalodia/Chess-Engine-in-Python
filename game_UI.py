@@ -1,7 +1,7 @@
 import pygame
-#linking board.py with game_UI.py
 from board import BoardState 
 from move import Move
+from SmartMoveFinder import random_AI_moves 
 
 pygame.init()
 
@@ -59,6 +59,7 @@ TEXT_COLOR = (255, 255, 255)
 hash_board = dict()
 
 def move_performer(engine_move):
+    global is_game_over , winning_string
     initial = engine_move.start_idx
     final = engine_move.end_idx
     piece_to_move = Board.board[initial]
@@ -75,7 +76,6 @@ def move_performer(engine_move):
             Board.black_king_move=True
             Board.counter+=1
             Board.half_move_counter += 1
-            Board.save_state()
 
         #Performing Black King's King Side Castling if Conditions are correct
         elif(piece_to_move=='k' and final == 27 and initial == 25 and Board.black_king_side_castle==True):
@@ -87,7 +87,6 @@ def move_performer(engine_move):
             Board.black_king_move=True
             Board.counter+=1
             Board.half_move_counter += 1
-            Board.save_state()
 
         #Performing White King's Queen Side Castling if Conditions are correct
         elif(piece_to_move=='K' and final == 93 and initial == 95 and Board.white_queen_side_castle==True):
@@ -99,7 +98,6 @@ def move_performer(engine_move):
             Board.white_king_move=True
             Board.counter+=1
             Board.half_move_counter += 1
-            Board.save_state()
 
         #Performing White King's King Side Castling if Conditions are correct
         elif(piece_to_move=='K' and final == 97 and initial == 95 and Board.white_king_side_castle==True):
@@ -111,9 +109,9 @@ def move_performer(engine_move):
             Board.white_king_move=True
             Board.counter+=1
             Board.half_move_counter += 1
-            Board.save_state()
     
-    elif(engine_move.is_promotion==True):
+    #Pawn Promotion For Human
+    elif(engine_move.is_promotion==True and engine_move.pawn_promoted_to=='-'):
         #Check for the pawn promotion move (as it's move_ID is different)
         if (piece_to_move == 'P' and final // 10 == 2) or (piece_to_move == 'p' and final // 10 == 9):
             global is_pawn_promotion 
@@ -121,6 +119,14 @@ def move_performer(engine_move):
             is_pawn_promotion = True
             promotion_move = engine_move
             promotion_move.is_promotion = True
+            return
+
+    #Pawn Promotion For AI
+    elif(engine_move.is_promotion==True and engine_move.pawn_promoted_to!='-'):
+        Board.board[final]=engine_move.pawn_promoted_to
+        Board.board[initial]='-'
+        Board.counter+=1
+        Board.half_move_counter = 0 
             
     elif(engine_move.is_en_passant==True):
         #EnPassant Move
@@ -135,7 +141,6 @@ def move_performer(engine_move):
         Board.board[initial] = '-'
         Board.counter+=1
         Board.half_move_counter = 0 
-        Board.save_state()
 
     else:
         Board.board[final]=piece_to_move
@@ -148,10 +153,10 @@ def move_performer(engine_move):
 
         #For EnPaussant Changes
         Board.en_passant_target = -1
-        if (piece_to_move == 'P' and initial_index - final_index == 20):
-            Board.en_passant_target = final_index + 10
-        elif (piece_to_move == 'p' and final_index - initial_index == 20):
-            Board.en_passant_target = final_index - 10
+        if (piece_to_move == 'P' and initial - final == 20):
+            Board.en_passant_target = final + 10
+        elif (piece_to_move == 'p' and final - initial == 20):
+            Board.en_passant_target = final - 10
         #For Castling Changes
         elif(piece_to_move == 'r' and initial == 21 and Board.r1move==False):
             Board.r1move=True
@@ -165,8 +170,6 @@ def move_performer(engine_move):
             Board.black_king_move=True
         elif(piece_to_move =='K' and initial == 95 and Board.white_king_move==False):
             Board.white_king_move=True
-
-        Board.save_state()
 
     #For 3 Move Repetation Rule
     board_string = Board.board_to_string()
@@ -186,7 +189,8 @@ def move_performer(engine_move):
     is_game_over()
 
 def is_game_over():
-
+    global list_of_legal_moves , winning_string , game_is_over
+    list_of_legal_moves = []
     global white_king_under_check , black_king_under_check
     #For Checking if Game Is Over 
     if(Board.counter%2==0):
@@ -207,10 +211,10 @@ def is_game_over():
             if(Board.board[i].isupper()==True):
                 x = (i % 10) - 1
                 y = (i - 20) // 10
-                list_of_legal_moves = Board.legal_moves(Board.board[i],x,y)
-                if(len(list_of_legal_moves) >0 ):
-                    there_are_legal_moves = True
-                    break
+                list_of_legal_moves += Board.legal_moves(Board.board[i],x,y)
+        if(len(list_of_legal_moves) >0 ):
+            there_are_legal_moves = True
+                    
         if(there_are_legal_moves == False):
             game_is_over = True
             if(Board.white_king_in_check() == True):
@@ -236,10 +240,10 @@ def is_game_over():
             if(Board.board[i].islower()==True and Board.board[i]!='x'):
                 x = (i % 10) - 1
                 y = (i - 20) // 10
-                list_of_legal_moves = Board.legal_moves(Board.board[i],x,y)
-                if(len(list_of_legal_moves) >0 ):
-                    there_are_legal_moves = True
-                    break
+                list_of_legal_moves += Board.legal_moves(Board.board[i],x,y)
+        if(len(list_of_legal_moves) >0 ):
+            there_are_legal_moves = True
+                   
         if(there_are_legal_moves == False):
             game_is_over = True
             if(Board.black_king_in_check() == True):
@@ -288,13 +292,19 @@ def coloring_check():
         y = (index-20)//10
         screen.blit(rectangle,(x*square_size,y*square_size))
 
+playerOne = True #Player One is white and True means Human else AI
+playerTwo = False #Player Two is Black and True means Human else AI
+ 
 running = True
 while running : 
     for event in pygame.event.get():
+
+        is_human_move = ((playerOne==True and Board.counter%2==0) or (playerTwo==True and Board.counter%2==1))
+
         if(event.type == pygame.QUIT):
             running = False
 
-        elif (is_pawn_promotion==True and event.type == pygame.MOUSEBUTTONDOWN):
+        elif (is_pawn_promotion==True and event.type == pygame.MOUSEBUTTONDOWN and is_human_move):
             mouse_x, mouse_y = pygame.mouse.get_pos()
             piece_to_move = Board.board[promotion_move.start_idx]
             chosen_piece = '\0'
@@ -318,11 +328,10 @@ while running :
                     promotion_move = None
                     Board.counter += 1
                     Board.half_move_counter = 0
-                    Board.save_state()
                     is_game_over()
 
         #when we pick up a piece from a square
-        elif (game_is_over==False and dragging==False and event.type == pygame.MOUSEBUTTONDOWN):
+        elif (game_is_over==False and dragging==False and event.type == pygame.MOUSEBUTTONDOWN and is_human_move):
             mouse_x,mouse_y=pygame.mouse.get_pos()
             drag_x,drag_y=mouse_x,mouse_y
             mouse_x = mouse_x//square_size
@@ -345,11 +354,11 @@ while running :
                     Board.board[initial_index]=dragged_piece
         
         #when we are dargging the piece
-        elif (game_is_over == False and dragging==True and event.type == pygame.MOUSEMOTION):
+        elif (game_is_over == False and dragging==True and event.type == pygame.MOUSEMOTION and is_human_move):
             drag_x,drag_y = pygame.mouse.get_pos()
 
         #When we put the piece in a square
-        elif (game_is_over==False and dragging==True and event.type ==pygame.MOUSEBUTTONUP):
+        elif (game_is_over==False and dragging==True and event.type ==pygame.MOUSEBUTTONUP and is_human_move):
             mouse_x,mouse_y = pygame.mouse.get_pos()
             mouse_x = mouse_x//square_size
             mouse_y = mouse_y//square_size
@@ -377,19 +386,12 @@ while running :
                                 
             dragging = False 
 
-        # KEYBOARD EVENTS (UNDO / REDO)
-        elif (event.type == pygame.KEYDOWN):
-            #If UNDO (Left Arrow Key or Ctrl+z)
-            if (event.key == pygame.K_LEFT or (event.key == pygame.K_z and (pygame.key.get_mods() & pygame.KMOD_CTRL))):
-                if Board.history_pointer > 0:
-                    Board.history_pointer -= 1
-                    Board.load_state()
-            # If REDO (Right Arrow Key or Ctrl+y)
-            elif (event.key == pygame.K_RIGHT or (event.key == pygame.K_y and (pygame.key.get_mods() & pygame.KMOD_CTRL))):
-                if Board.history_pointer < len(Board.game_history) - 1:
-                    Board.history_pointer += 1
-                    Board.load_state()
-
+        elif(game_is_over==False and not is_human_move):
+            ai_idx = random_AI_moves(list_of_legal_moves)
+            if(ai_idx == -1):
+                game_is_over=True
+            else :    
+                move_performer(list_of_legal_moves[ai_idx])
 
     for x in range (8):
         for y in range (8) :

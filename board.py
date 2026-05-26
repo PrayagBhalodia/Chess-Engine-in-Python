@@ -34,41 +34,6 @@ class BoardState :
                  ]
         self.counter = 0 
         self.half_move_counter = 0
-        self.game_history = []
-        self.history_pointer = 0
-        self.save_state()
-
-#------------------------------------------FUNCTION TO SAVE THE THE HISTORY FOR UNDO/REDO-----------------------------------------------------
-    def save_state(self):
-        current_state = {
-            "board" : self.board.copy(),
-            "ep_target" : self.en_passant_target,
-            "castling" : [
-                self.r1move , self.r2move , self.R1move , self.R2move , 
-                self.black_king_move , self.white_king_move ,
-                self.black_king_side_castle, self.white_king_side_castle,
-                self.black_queen_side_castle, self.white_queen_side_castle
-            ],
-            "half_moves": self.half_move_counter,
-            "turn_counter": self.counter
-        }
-        self.game_history = self.game_history[:self.history_pointer + 1]
-        self.game_history.append(current_state)
-        self.history_pointer += 1
-
-    def load_state(self):
-        state = self.game_history[self.history_pointer]
-        self.board = state["board"].copy()
-        self.en_passant_target = state["ep_target"]
-        
-        flags = state["castling"]
-        self.r1move, self.r2move, self.R1move, self.R2move = flags[0], flags[1], flags[2], flags[3]
-        self.black_king_move, self.white_king_move = flags[4], flags[5]
-        self.black_king_side_castle, self.white_king_side_castle = flags[6], flags[7]
-        self.black_queen_side_castle, self.white_queen_side_castle = flags[8], flags[9]
-        
-        self.half_move_counter = state["half_moves"]
-        self.counter = state["turn_counter"]
 
 #--------------------------------------------------BOARD TO STRING HELPER FUNCTION -------------------------------------------------------------
     def board_to_string(self):
