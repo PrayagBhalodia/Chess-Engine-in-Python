@@ -34,49 +34,25 @@ class BoardState :
                  ]
         self.counter = 0 
         self.half_move_counter = 0
-        self.counter = 0 
-        self.half_move_counter = 0
-        self.game_history = []
-        self.history_pointer = 0
-        self.save_state()
-
-#------------------------------------------FUNCTION TO SAVE THE THE HISTORY FOR UNDO/REDO-----------------------------------------------------
-    def save_state(self):
-        current_state = {
-            "board" : self.board.copy(),
-            "ep_target" : self.en_passant_target,
-            "castling" : [
-                self.r1move , self.r2move , self.R1move , self.R2move , 
-                self.black_king_move , self.white_king_move ,
-                self.black_king_side_castle, self.white_king_side_castle,
-                self.black_queen_side_castle, self.white_queen_side_castle
-            ],
-            "half_moves": self.half_move_counter,
-            "turn_counter": self.counter
-        }
-        self.game_history = self.game_history[:self.history_pointer + 1]
-        self.game_history.append(current_state)
-        self.history_pointer += 1
-
-    def load_state(self):
-        state = self.game_history[self.history_pointer]
-        self.board = state["board"].copy()
-        self.en_passant_target = state["ep_target"]
-        
-        flags = state["castling"]
-        self.r1move, self.r2move, self.R1move, self.R2move = flags[0], flags[1], flags[2], flags[3]
-        self.black_king_move, self.white_king_move = flags[4], flags[5]
-        self.black_king_side_castle, self.white_king_side_castle = flags[6], flags[7]
-        self.black_queen_side_castle, self.white_queen_side_castle = flags[8], flags[9]
-
-        self.half_move_counter = state["half_moves"]
-        self.counter = state["turn_counter"]
+        self.ai_stack = []
 
 #-------------------------------------------------------------FOR AI TO MAKE AN UNMAKE A MOVE-----------------------------------------------------------------------------
-
+    
     def make_ai_move(self, engine_move):
-        # 1. Save the state before touching anything
-        self.save_state()
+        # 1. PUSH TO STACK: Save ONLY the flags and the move object, NOT the whole board array!
+        state_to_save = {
+            'ep_target': self.en_passant_target,
+            'half_moves': self.half_move_counter,
+            'r1': self.r1move, 'r2': self.r2move,
+            'R1': self.R1move, 'R2': self.R2move,
+            'bk': self.black_king_move, 'wk': self.white_king_move,
+            'b_k_castle': self.black_king_side_castle,
+            'b_q_castle': self.black_queen_side_castle,
+            'w_k_castle': self.white_king_side_castle,
+            'w_q_castle': self.white_queen_side_castle,
+            'move': engine_move 
+        }
+        self.ai_stack.append(state_to_save)
         
         initial = engine_move.start_idx
         final = engine_move.end_idx
@@ -94,11 +70,23 @@ class BoardState :
                 self.board[94] = 'R'; self.board[91] = '-'
             elif final == 97: # White King-Side
                 self.board[96] = 'R'; self.board[98] = '-'
+
+            if piece_to_move == 'k':
+                self.black_king_move = True
+                if final == 23: self.r1move = True
+                elif final == 27: self.r2move = True
+            elif piece_to_move == 'K':
+                self.white_king_move = True
+                if final == 93: self.R1move = True
+                elif final == 97: self.R2move = True
+            self.half_move_counter += 1
+            self.en_passant_target = -1
                 
         # 3. Handle Pawn Promotion
         elif engine_move.is_promotion:
             self.board[final] = engine_move.pawn_promoted_to
             self.board[initial] = '-'
+            self.half_move_counter = 0
             
         # 4. Handle En Passant Deletions
         elif engine_move.is_en_passant:
@@ -108,20 +96,98 @@ class BoardState :
                 self.board[final + 10] = '-'
             elif piece_to_move == 'p':
                 self.board[final - 10] = '-'
+            self.half_move_counter = 0
                 
         # 5. Normal Moves
         else: 
             self.board[final] = piece_to_move
             self.board[initial] = '-'
-            
-        # 6. Tick the clock so the AI knows whose turn it is next
+            if piece_to_move == 'p' or piece_to_move == 'P' or engine_move.piece_captured != '-':
+                self.half_move_counter = 0
+            else:
+                self.half_move_counter += 1
+        
+        # Update en passant target
+        self.en_passant_target = -1
+        if piece_to_move == 'P' and initial - final == 20:
+            self.en_passant_target = final + 10
+        elif piece_to_move == 'p' and final - initial == 20:
+            self.en_passant_target = final - 10
+
+        # Update castling flags for non-castle moves
+        if not engine_move.is_castled:
+            if piece_to_move == 'r' and initial == 21: self.r1move = True
+            elif piece_to_move == 'r' and initial == 28: self.r2move = True
+            elif piece_to_move == 'R' and initial == 91: self.R1move = True
+            elif piece_to_move == 'R' and initial == 98: self.R2move = True
+            elif piece_to_move == 'k' and initial == 25: self.black_king_move = True
+            elif piece_to_move == 'K' and initial == 95: self.white_king_move = True
+
+        captured_piece = engine_move.piece_captured
+        if captured_piece == 'r':
+            if final == 21: self.r1move = True
+            elif final == 28: self.r2move = True
+        elif captured_piece == 'R':
+            if final == 91: self.R1move = True
+            elif final == 98: self.R2move = True
+
         self.counter += 1
 
 
     def unmake_ai_move(self):
-        # Instantly rewind time using your history array
-        self.history_pointer -= 1
-        self.load_state()
+        # 1. POP FROM STACK: Grab the old state
+        old_state = self.ai_stack.pop()
+        engine_move = old_state['move']
+        
+        # 2. Restore flags and counters directly
+        self.en_passant_target = old_state['ep_target']
+        self.half_move_counter = old_state['half_moves']
+        self.r1move, self.r2move = old_state['r1'], old_state['r2']
+        self.R1move, self.R2move = old_state['R1'], old_state['R2']
+        self.black_king_move, self.white_king_move = old_state['bk'], old_state['wk']
+        self.black_king_side_castle = old_state['b_k_castle']
+        self.black_queen_side_castle = old_state['b_q_castle']
+        self.white_king_side_castle = old_state['w_k_castle']
+        self.white_queen_side_castle = old_state['w_q_castle']
+        
+        # 3. Manually reverse the board array using the move object
+        initial = engine_move.start_idx
+        final = engine_move.end_idx
+        piece_moved = engine_move.piece_moved
+        piece_captured = engine_move.piece_captured
+        
+        if engine_move.is_castled:
+            self.board[initial] = piece_moved
+            self.board[final] = '-'
+            if final == 23: # Black Queen-Side
+                self.board[21] = 'r'; self.board[24] = '-'
+            elif final == 27: # Black King-Side
+                self.board[28] = 'r'; self.board[26] = '-'
+            elif final == 93: # White Queen-Side
+                self.board[91] = 'R'; self.board[94] = '-'
+            elif final == 97: # White King-Side
+                self.board[98] = 'R'; self.board[96] = '-'
+                
+        elif engine_move.is_promotion:
+            self.board[initial] = piece_moved # Put the pawn back!
+            self.board[final] = piece_captured # Put whatever was captured back (could just be '-')
+            
+        elif engine_move.is_en_passant:
+            self.board[initial] = piece_moved
+            self.board[final] = '-'
+            # Restore the captured pawn to its correct square!
+            if piece_moved == 'P':
+                self.board[final + 10] = 'p'
+            elif piece_moved == 'p':
+                self.board[final - 10] = 'P'
+                
+        else:
+            # Normal Move Reversal
+            self.board[initial] = piece_moved
+            self.board[final] = piece_captured
+            
+        # 4. Tick the clock backward
+        self.counter -= 1
 
 #--------------------------------------------------BOARD TO STRING HELPER FUNCTION -------------------------------------------------------------
     def board_to_string(self):
@@ -132,7 +198,10 @@ class BoardState :
                     board_string+="0"
                 else:
                     board_string+=self.board[i]
-        board_string+=str(self.en_passant_target)+str(self.white_king_side_castle)+str(self.black_king_side_castle)+str(self.black_queen_side_castle)+str(self.white_queen_side_castle)
+        ep_code = self.en_passant_target + 256 if self.en_passant_target == -1 else self.en_passant_target
+        board_string += f"{ep_code:03d}"
+        # BUG FIXING ENDS HERE
+        board_string+=str(self.white_king_side_castle)+str(self.black_king_side_castle)+str(self.black_queen_side_castle)+str(self.white_queen_side_castle)
         return board_string
 
 #---------------------------------------------------HELPER FUNCTIONS FOR PSEUDO LEGAL MOVES---------------------------------------------
@@ -326,6 +395,11 @@ class BoardState :
             if(self.board[index+knight_moves[i]]=='n'):
                 return True
 
+        #King check logic
+        for i in range(8):
+            if(self.board[index+step_moves[i]]=='k'):
+                return True 
+
         #Pawn check logic
         if(self.board[index-11]=='p' or self.board[index-9]=='p'):
             return True
@@ -359,6 +433,11 @@ class BoardState :
                         return True
                     break
 
+        #King check logic
+        for i in range(8):
+            if(self.board[index+step_moves[i]]=='k'):
+                return True
+
         #Knight check logic
         knight_moves = [-21,-19,-12,-8,8,12,19,21]
         for i in range(8):
@@ -386,7 +465,7 @@ class BoardState :
         legal_moves = []
 
         #Check for Black King's Queen Side Castle
-        if(piece=='k' and self.r1move == False and self.black_king_move == False and 
+        if(piece=='k' and self.r1move == False and self.black_king_move == False and self.board[21]=='r' and
            self.board[22]=='-' and self.board[23]=='-' and self.board[24]=='-' and self.black_king_in_check()==False):
             self.board[25]='-'
             self.board[24]='k'
@@ -405,7 +484,7 @@ class BoardState :
             self.black_queen_side_castle = False
 
         #Check for Black King's King Side Castle
-        if(piece=='k' and self.r2move==False and self.black_king_move == False and
+        if(piece=='k' and self.r2move==False and self.black_king_move == False and self.board[28]=='r' and
            self.board[26]=='-' and self.board[27]=='-' and self.black_king_in_check()==False):
             self.board[25]='-'
             self.board[26]='k'
@@ -425,7 +504,7 @@ class BoardState :
             self.black_king_side_castle=False
 
         #Check for White King's Queen Side Castle
-        if(piece=='K' and self.R1move == False and self.white_king_move == False and 
+        if(piece=='K' and self.R1move == False and self.white_king_move == False and self.board[91]=='R' and
            self.board[92]=='-' and self.board[93]=='-' and self.board[94]=='-' and self.white_king_in_check()==False):
             self.board[95]='-'
             self.board[94]='K'
@@ -444,7 +523,7 @@ class BoardState :
             self.white_queen_side_castle = False
 
         #Check for White King's King Side Castle
-        if(piece=='K' and self.r2move==False and self.white_king_move == False and
+        if(piece=='K' and self.r2move==False and self.white_king_move == False and self.board[98]=='R' and
            self.board[96]=='-' and self.board[97]=='-' and self.white_king_in_check()==False):
             self.board[95]='-'
             self.board[96]='K'
@@ -514,7 +593,7 @@ class BoardState :
                     self.board[index]='-'
 
                     pawn_prom_move.pawn_promoted_to=promotion[i]
-                    pawn_prom_move.move_id+=promotion[i]
+                    pawn_prom_move.move_id += promotion[i]
                     pawn_prom_move.is_promotion=True
 
                     is_king_safe = False

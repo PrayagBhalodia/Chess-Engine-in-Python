@@ -60,7 +60,7 @@ TEXT_COLOR = (255, 255, 255)
 hash_board = dict()
 
 def move_performer(engine_move):
-    global is_game_over , winning_string
+    global game_is_over , winning_string
     initial = engine_move.start_idx
     final = engine_move.end_idx
     piece_to_move = Board.board[initial]
@@ -128,6 +128,12 @@ def move_performer(engine_move):
         Board.board[initial]='-'
         Board.counter+=1
         Board.half_move_counter = 0 
+        if captured == 'r':
+            if final == 21: Board.r1move = True
+            elif final == 28: Board.r2move = True
+        elif captured == 'R':
+            if final == 91: Board.R1move = True
+            elif final == 98: Board.R2move = True
             
     elif(engine_move.is_en_passant==True):
         #EnPassant Move
@@ -187,7 +193,6 @@ def move_performer(engine_move):
         game_is_over=True
         winning_string = "Draw by 50-Move Rule"
 
-    Board.save_state()
     is_game_over()
 
 def is_game_over():
@@ -294,15 +299,84 @@ def coloring_check():
         y = (index-20)//10
         screen.blit(rectangle,(x*square_size,y*square_size))
 
+#UI Feature to animate the move
+def animate_move(engine_move):
+    initial = engine_move.start_idx
+    final = engine_move.end_idx
+    piece = Board.board[initial]
+
+    # 1. Translate the 120-array indexes into standard 0-7 grid coordinates
+    start_grid_x = (initial % 10) - 1
+    start_grid_y = (initial - 20) // 10
+    end_grid_x = (final % 10) - 1
+    end_grid_y = (final - 20) // 10
+    
+    # 2. Convert grid coordinates to starting and ending pixel layouts
+    start_pixel_x = start_grid_x * square_size
+    start_pixel_y = start_grid_y * square_size
+    end_pixel_x = end_grid_x * square_size
+    end_pixel_y = end_grid_y * square_size
+    
+    # Animation configurations
+    animation_frames = 20 
+    clock = pygame.time.Clock()
+    
+    Board.board[initial] = '-'
+    
+    # 3. Slide the piece step-by-step along the path
+    for frame in range(animation_frames + 1):
+        # Calculate percent completion (t goes from 0.0 to 1.0)
+        t = frame / animation_frames
+        
+        # Linear Interpolation (LERP) formula
+        current_x = start_pixel_x + (end_pixel_x - start_pixel_x) * t
+        current_y = start_pixel_y + (end_pixel_y - start_pixel_y) * t
+        
+        # Redraw the background chess board squares
+        for x in range(8):
+            for y in range(8):
+                x_coordinate = x * square_size
+                y_coordinate = y * square_size
+                rect = pygame.Surface((square_size, square_size))
+                if (x + y) % 2 == 0:
+                    rect.fill((255, 255, 255))
+                else:
+                    rect.fill((170, 170, 170))
+                screen.blit(rect, (x_coordinate, y_coordinate))
+                
+        # Redraw all OTHER static pieces currently standing on the board
+        for i in range(120):
+            if Board.board[i] == 'x' or Board.board[i] == '-':
+                continue
+            piece_to_draw = pieces[Board.board[i]]
+            x_pos = ((i % 10) - 1) * square_size
+            y_pos = ((i - 20) // 10) * square_size
+            screen.blit(piece_to_draw, (x_pos, y_pos))
+            
+        # Draw the single animated piece floating smoothly over the squares
+        screen.blit(pieces[piece], (current_x, current_y))
+        
+        # Refresh the screen and cap the animation updates at 60 frames per second
+        pygame.display.flip()
+        clock.tick(60)
+        
+    # Restore the piece to its original spot in the array so move_performer can run smoothly
+    Board.board[initial] = piece
+
 playerOne = True #Player One is white and True means Human else AI
 playerTwo = False #Player Two is Black and True means Human else AI
  
 running = True
 while running : 
+    is_human_move = ((playerOne==True and Board.counter%2==0) or (playerTwo==True and Board.counter%2==1))
+
+    if(game_is_over==False and not is_human_move):
+        ai_move = findBestMove(Board)
+        if ai_move is not None:
+            animate_move(ai_move)
+            move_performer(ai_move)
+
     for event in pygame.event.get():
-
-        is_human_move = ((playerOne==True and Board.counter%2==0) or (playerTwo==True and Board.counter%2==1))
-
         if(event.type == pygame.QUIT):
             running = False
 
@@ -320,17 +394,13 @@ while running :
                 elif(640 <= mouse_x < 768):
                     chosen_piece = 'n' if piece_to_move.islower() else 'N'
             if chosen_piece != '\0':
-                # Rebuild move_id with chosen promotion letter
-                promotion_move.pawn_promoted_to = chosen_piece
-                promotion_move.move_id +=  chosen_piece
-                if promotion_move in current_legal_moves:
-                    Board.board[promotion_move.end_idx] = chosen_piece
-                    Board.board[promotion_move.start_idx] = '-'
-                    is_pawn_promotion = False
-                    promotion_move = None
-                    Board.counter += 1
-                    Board.half_move_counter = 0
-                    is_game_over()
+                for m in current_legal_moves:
+                    if m.is_promotion and m.start_idx == promotion_move.start_idx and m.end_idx == promotion_move.end_idx and m.pawn_promoted_to == chosen_piece:
+                        is_pawn_promotion = False
+                        move_performer(m)
+                        promotion_move = None
+                        current_legal_moves = []
+                        break
 
         #when we pick up a piece from a square
         elif (game_is_over==False and dragging==False and event.type == pygame.MOUSEBUTTONDOWN and is_human_move):
@@ -376,6 +446,9 @@ while running :
                 if matched is not None:
                     is_pawn_promotion = True
                     promotion_move = matched
+                    Board.board[initial_index] = dragged_piece
+                    dragging = False
+                    continue
             #putting the piece back to the original place to generate move_id correctly
             Board.board[initial_index] = dragged_piece
             if(Board.board[final_index]!='x'):
@@ -387,9 +460,6 @@ while running :
                 move_performer(engine_move)
                                 
             dragging = False 
-
-        elif(game_is_over==False and not is_human_move):
-            move_performer(findBestMove(Board))
 
     for x in range (8):
         for y in range (8) :
