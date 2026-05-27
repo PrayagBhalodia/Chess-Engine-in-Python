@@ -1,33 +1,57 @@
 import pygame
+import os
+import sys
+import ctypes
 from board import BoardState 
 from move import Move
-from SmartMoveFinder import random_AI_moves
-from SmartMoveFinder import findBestMove 
+from SmartMoveFinder import random_AI_moves 
+from SmartMoveFinder import findBestMove
+
+# 1. Tell Windows to stop zooming the app!
+try:
+    ctypes.windll.user32.SetProcessDPIAware()
+except Exception:
+    pass
+
+def resource_path(relative_path):
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 
 pygame.init()
 
-width = 1024
-height = 1024
+info = pygame.display.Info()
+board_size = int(info.current_h * 0.85)
+
+width = board_size
+height = board_size
 screen = pygame.display.set_mode((width, height))
 square_size = width//8 
-rect_surface = pygame.Surface((1024,1024),pygame.SRCALPHA)
+
+rect_surface = pygame.Surface((width, height), pygame.SRCALPHA)
 rect_surface.fill((0,0,0,192))
 dragged_piece = '-'
 
+def load_piece(filename):
+    img = pygame.image.load(resource_path(filename)).convert_alpha()
+    return pygame.transform.smoothscale(img, (square_size, square_size))
+
 #Creating a Dictonary for the Pieces to Images
 pieces={
-    'R' : pygame.image.load('Chess_images/rook-w.svg').convert_alpha(),
-    'r' : pygame.image.load('Chess_images/rook-b.svg').convert_alpha(),
-    'N' : pygame.image.load('Chess_images/knight-w.svg').convert_alpha(),
-    'n' : pygame.image.load('Chess_images/knight-b.svg').convert_alpha(),
-    'B' : pygame.image.load('Chess_images/bishop-w.svg').convert_alpha(),
-    'b' : pygame.image.load('Chess_images/bishop-b.svg').convert_alpha(),
-    'P' : pygame.image.load('Chess_images/pawn-w.svg').convert_alpha(),
-    'p' : pygame.image.load('Chess_images/pawn-b.svg').convert_alpha(),
-    'q' : pygame.image.load('Chess_images/queen-b.svg').convert_alpha(),
-    'Q' : pygame.image.load('Chess_images/queen-w.svg').convert_alpha(),
-    'K' : pygame.image.load('Chess_images/king-w.svg').convert_alpha(),
-    'k' : pygame.image.load('Chess_images/king-b.svg').convert_alpha(),
+    'R' : load_piece('Chess_images/rook-w.svg'),
+    'r' : load_piece('Chess_images/rook-b.svg'),
+    'N' : load_piece('Chess_images/knight-w.svg'),
+    'n' : load_piece('Chess_images/knight-b.svg'),
+    'B' : load_piece('Chess_images/bishop-w.svg'),
+    'b' : load_piece('Chess_images/bishop-b.svg'),
+    'P' : load_piece('Chess_images/pawn-w.svg'),
+    'p' : load_piece('Chess_images/pawn-b.svg'),
+    'q' : load_piece('Chess_images/queen-b.svg'),
+    'Q' : load_piece('Chess_images/queen-w.svg'),
+    'K' : load_piece('Chess_images/king-w.svg'),
+    'k' : load_piece('Chess_images/king-b.svg'),
 }
 
 Board = BoardState()
@@ -53,7 +77,7 @@ white_king_under_check = False
 game_is_over = False
 game_over_font = pygame.font.SysFont(None, 48) 
 winning_string = "" 
-winning_rect = pygame.Surface((512,256))
+winning_rect = pygame.Surface((square_size*4,square_size*2))
 TEXT_COLOR = (255, 255, 255)
 
 #For 3 Moves Repetition Rule
@@ -68,7 +92,7 @@ def move_performer(engine_move):
 
     if(engine_move.is_castled==True):
         #Performing Black King's Queen Side Castling if Conditions are correct
-        if(piece_to_move=='k' and final == 23 and initial == 25 and Board.black_queen_side_castle==True):
+        if(piece_to_move=='k' and final == 23 and initial == 25 ):
             Board.board[23]='k'
             Board.board[25]='-'
             Board.board[24]='r'
@@ -79,7 +103,7 @@ def move_performer(engine_move):
             Board.half_move_counter += 1
 
         #Performing Black King's King Side Castling if Conditions are correct
-        elif(piece_to_move=='k' and final == 27 and initial == 25 and Board.black_king_side_castle==True):
+        elif(piece_to_move=='k' and final == 27 and initial == 25 ):
             Board.board[27]='k'
             Board.board[25]='-'
             Board.board[28]='-'
@@ -90,7 +114,7 @@ def move_performer(engine_move):
             Board.half_move_counter += 1
 
         #Performing White King's Queen Side Castling if Conditions are correct
-        elif(piece_to_move=='K' and final == 93 and initial == 95 and Board.white_queen_side_castle==True):
+        elif(piece_to_move=='K' and final == 93 and initial == 95 ):
             Board.board[93]='K'
             Board.board[95]='-'
             Board.board[94]='R'
@@ -101,7 +125,7 @@ def move_performer(engine_move):
             Board.half_move_counter += 1
 
         #Performing White King's King Side Castling if Conditions are correct
-        elif(piece_to_move=='K' and final == 97 and initial == 95 and Board.white_king_side_castle==True):
+        elif(piece_to_move=='K' and final == 97 and initial == 95 ):
             Board.board[97]='K'
             Board.board[95]='-'
             Board.board[98]='-'
@@ -260,21 +284,13 @@ def is_game_over():
 
 
 def square_coloring(init_x,init_y):
-    pygame.draw.circle(screen,(176,224,230),(init_x*square_size+64,init_y*square_size+64),56)
+    pygame.draw.circle(screen,(176,224,230),(init_x*square_size+square_size//2,init_y*square_size+square_size//2),(square_size*7)//16)
     index = init_y*10 + 20 + init_x + 1
-    if(dragged_piece=='k' and Board.black_king_side_castle==True and index==25):
-        pygame.draw.circle(screen,(255,255,224),(6*square_size+64,64),56)
-    if(dragged_piece=='k' and Board.black_queen_side_castle==True and index==25):
-        pygame.draw.circle(screen,(255,255,224),(2*square_size+64,64),56)
-    if(dragged_piece=='K' and Board.white_king_side_castle==True and index ==95):
-        pygame.draw.circle(screen,(255,255,224),(6*square_size+64,7*square_size+64),56)
-    if(dragged_piece=='K' and Board.white_queen_side_castle==True and index ==95):
-        pygame.draw.circle(screen,(255,255,224),(2*square_size+64,7*square_size+64),56)
     for i in range(len(current_legal_moves)):
         index = current_legal_moves[i].end_idx
         x = index%10 - 1 
         y = (index-20)//10
-        pygame.draw.circle(screen,(255,255,224),(x*square_size+64,y*square_size+64),56)
+        pygame.draw.circle(screen,(255,255,224),(x*square_size+square_size//2,y*square_size+square_size//2),(square_size*7)//16)
     
 
 def coloring_check():
@@ -384,14 +400,14 @@ while running :
             mouse_x, mouse_y = pygame.mouse.get_pos()
             piece_to_move = Board.board[promotion_move.start_idx]
             chosen_piece = '\0'
-            if(448 <= mouse_y <= 448 + square_size):
-                if(256 <= mouse_x < 384):
+            if(square_size*3 <= mouse_y <= square_size*3 + square_size):
+                if(square_size*2 <= mouse_x < square_size*3):
                     chosen_piece = 'q' if piece_to_move.islower() else 'Q'
-                elif(384 <= mouse_x < 512):
+                elif(square_size*3 <= mouse_x < square_size*4):
                     chosen_piece = 'r' if piece_to_move.islower() else 'R'
-                elif(512 <= mouse_x < 640):
+                elif(square_size*4 <= mouse_x < square_size*5):
                     chosen_piece = 'b' if piece_to_move.islower() else 'B'
-                elif(640 <= mouse_x < 768):
+                elif(square_size*5 <= mouse_x < square_size*6):
                     chosen_piece = 'n' if piece_to_move.islower() else 'N'
             if chosen_piece != '\0':
                 for m in current_legal_moves:
@@ -495,14 +511,14 @@ while running :
             promotion_list = ['q','r','b','n']
         screen.blit(rect_surface,(0,0))
         for i in range(4):
-            screen.blit(pieces[promotion_list[i]],(256+128*i,448))
+            screen.blit(pieces[promotion_list[i]],(square_size*2+square_size*i,square_size*3))
             
     if(game_is_over==True):
         screen.blit(rect_surface,(0,0))
-        screen.blit(winning_rect,(256,384))
+        screen.blit(winning_rect,(square_size*2,square_size*3))
         text_surface = game_over_font.render(winning_string, True, TEXT_COLOR)
         text_rect = text_surface.get_rect()
-        win_box_bounds = winning_rect.get_rect(topleft=(256,384))
+        win_box_bounds = winning_rect.get_rect(topleft=(square_size*2,square_size*3))
         text_rect.center = win_box_bounds.center
         screen.blit(text_surface, text_rect)
 
