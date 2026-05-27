@@ -9,8 +9,12 @@ A fully playable chess game built with Python and Pygame, featuring a human vs A
 - **Check detection** — the king's square is highlighted in red when in check
 - **Checkmate & stalemate detection** — game ends automatically with a result banner
 - **Draw rules** — threefold repetition and 50-move rule are both enforced
-- **AI opponent** — plays as Black, picking a random move from all legal options (smarter AI coming soon!)
 - **Touch-move rule** — once you pick up a piece, you must move it
+- **AI opponent** — plays as Black using a minimax search with the following evaluation:
+  - Material scoring (standard piece values)
+  - Piece-square tables for all six piece types (positional awareness)
+  - King safety bonus for retaining castling rights
+  - Three selectable AI modes: **Smart** (minimax), **Greedy** (best immediate capture), **Random**
 
 ## Controls
 
@@ -25,11 +29,12 @@ Legal move destinations are shown as highlighted circles when a piece is picked 
 
 - Python 3.x
 - Pygame
+- NumPy
 
-Install Pygame with:
+Install dependencies with:
 
 ```bash
-pip install pygame
+pip install pygame numpy
 ```
 
 ## Project Structure
@@ -38,7 +43,7 @@ pip install pygame
 ├── game_UI.py            # Pygame window, event loop, rendering
 ├── board.py              # Board state, move generation, check/castle logic
 ├── move.py               # Move representation
-├── SmartMoveFinder.py    # AI move selection (random for now, smarter version in progress)
+├── SmartMoveFinder.py    # AI move selection (minimax, greedy, and random modes)
 └── Chess_images/         # SVG piece assets (king, queen, rook, bishop, knight, pawn — black & white)
 ```
 
@@ -52,12 +57,12 @@ python game_UI.py
 
 Make sure the `Chess_images/` folder is in the same directory as the scripts.
 
-If Pygame isn't found or the game doesn't launch, set up a virtual environment first:
+If dependencies aren't found or the game doesn't launch, set up a virtual environment first:
 
 ```bash
 python -m venv my_env
 source my_env/bin/activate  # On Windows: my_env\Scripts\activate
-pip install pygame
+pip install pygame numpy
 python game_UI.py
 ```
 
@@ -67,4 +72,4 @@ The board uses a **120-element mailbox array** (10×12) with sentinel `'x'` squa
 
 Move legality is determined in two stages: pseudo-legal moves are generated first, then each is tested by applying it on the board and checking whether the moving side's king is left in check.
 
-The AI currently selects a random legal move each turn. A stronger engine using proper evaluation and search is in the works — though honestly, the random AI puts up a surprisingly decent fight sometimes. Probably just luck.
+The AI uses an incremental make/unmake system (`make_ai_move` / `unmake_ai_move`) that pushes only the changed flags onto a stack rather than copying the entire board, making the search significantly faster. The minimax evaluator scores positions using piece values, piece-square tables for all piece types, and a small bonus for retaining castling rights.
