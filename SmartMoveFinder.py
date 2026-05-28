@@ -17,7 +17,7 @@ pawn_white = np.array([
     [10, 10, 20, 30, 30, 20, 10, 10],
     [5,  5, 10, 25, 25, 10,  5,  5],
     [0,  0,  0, 20, 20,  0,  0,  0],
-    [5, -5,-10,  0,  0,-10, -5,  5],
+    [5,  0, -5,  0,  0, -5,  0,  5],
     [5, 10, 10,-20,-20, 10, 10,  5],
     [0,  0,  0,  0,  0,  0,  0,  0]
 ])
@@ -134,9 +134,53 @@ def generate_legal_moves(board):
     return moves_list
 
 def findBestMove (board):
-    return unkown_method(board)
+    bestPlayerMove = MinMax_recursive(board,DEPTH,board.counter%2==0,-1e8,1e8)[1]
+    return bestPlayerMove
 
-def unkown_method (board):
+#Min Max Algorithm with variable depth and along with alpha-beta pruning(fastest)
+DEPTH = 4
+def MinMax_recursive (board,depth,whiteToMove,alpha,beta):
+    bestPlayerMove = None 
+
+    if(depth==0):
+        return BoardScore(board),None
+
+    validMoves = generate_legal_moves(board)
+    random.shuffle(validMoves)
+
+    #White to Move
+    if whiteToMove :
+        maxScore = -1e8
+        for playerMove in validMoves :
+            board.make_ai_move(playerMove)
+            score = MinMax_recursive(board,depth-1,False,alpha,beta)[0]
+            board.unmake_ai_move()
+            if maxScore < score :
+                maxScore = score
+                bestPlayerMove = playerMove
+            alpha = max(alpha,maxScore)
+            if beta <= alpha :
+                break
+        return maxScore,bestPlayerMove
+        
+
+        #Black to Move
+    elif not whiteToMove : 
+        minScore = 1e8
+        for playerMove in validMoves:
+            board.make_ai_move(playerMove)
+            score = MinMax_recursive(board,depth-1,True,alpha,beta)[0]
+            board.unmake_ai_move()
+            if minScore > score :
+                minScore = score
+                bestPlayerMove = playerMove
+            beta = min(beta,minScore)
+            if beta <= alpha :
+                break
+        return minScore,bestPlayerMove
+
+#Min Max Algorithm without recursion , depth = 2 and without alpha-beta pruning
+def MinMax (board):
     validMoves = generate_legal_moves(board)
     random.shuffle(validMoves)
     bestValidMoves = [] 

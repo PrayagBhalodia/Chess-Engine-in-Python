@@ -282,38 +282,41 @@ def is_game_over():
             elif(Board.black_king_in_check() == False):
                 winning_string = "stalemate"
 
+def get_render_pos(logical_x, logical_y):
+    # This mirrors the board 180 degrees if playing as Black
+    if board_flipped:
+        return (7 - logical_x), (7 - logical_y)
+    return logical_x, logical_y
 
-def square_coloring(init_x,init_y):
-    pygame.draw.circle(screen,(176,224,230),(init_x*square_size+square_size//2,init_y*square_size+square_size//2),(square_size*7)//16)
-    index = init_y*10 + 20 + init_x + 1
+def square_coloring(init_x, init_y):
+    # Highlight starting square
+    ren_x, ren_y = get_render_pos(init_x, init_y)
+    pygame.draw.circle(screen, (176,224,230), (ren_x*square_size+square_size//2, ren_y*square_size+square_size//2), (square_size*7)//16)
+
     for i in range(len(current_legal_moves)):
         index = current_legal_moves[i].end_idx
-        x = index%10 - 1 
-        y = (index-20)//10
-        pygame.draw.circle(screen,(255,255,224),(x*square_size+square_size//2,y*square_size+square_size//2),(square_size*7)//16)
-    
+        x = index % 10 - 1 
+        y = (index - 20) // 10
+        rx, ry = get_render_pos(x, y)
+        pygame.draw.circle(screen, (100,100,100), (rx*square_size+square_size//2, ry*square_size+square_size//2), square_size//6)
 
 def coloring_check():
     rectangle = pygame.Surface((square_size,square_size))
     rectangle.fill((255,204,203))
-    if(black_king_under_check==True):
-        index = - 1
+    
+    index = -1
+    if black_king_under_check:
         for i in range(120):
-            if(Board.board[i]=='k'):
-                index = i 
-                break
-        x = index%10 - 1 
-        y = (index-20)//10
-        screen.blit(rectangle,(x*square_size,y*square_size))
-    elif(white_king_under_check==True):
-        index = - 1
+            if Board.board[i] == 'k': index = i; break
+    elif white_king_under_check:
         for i in range(120):
-            if(Board.board[i]=='K'):
-                index = i 
-                break
-        x = index%10 - 1 
-        y = (index-20)//10
-        screen.blit(rectangle,(x*square_size,y*square_size))
+            if Board.board[i] == 'K': index = i; break
+            
+    if index != -1:
+        x = index % 10 - 1 
+        y = (index - 20) // 10
+        rx, ry = get_render_pos(x, y)
+        screen.blit(rectangle, (rx*square_size, ry*square_size))
 
 #UI Feature to animate the move
 def animate_move(engine_move):
@@ -321,66 +324,80 @@ def animate_move(engine_move):
     final = engine_move.end_idx
     piece = Board.board[initial]
 
-    # 1. Translate the 120-array indexes into standard 0-7 grid coordinates
-    start_grid_x = (initial % 10) - 1
-    start_grid_y = (initial - 20) // 10
-    end_grid_x = (final % 10) - 1
-    end_grid_y = (final - 20) // 10
+    # 1. Grab Logical Grid, then pass to our Mirror Helper
+    start_grid_x, start_grid_y = get_render_pos((initial % 10) - 1, (initial - 20) // 10)
+    end_grid_x, end_grid_y = get_render_pos((final % 10) - 1, (final - 20) // 10)
     
-    # 2. Convert grid coordinates to starting and ending pixel layouts
     start_pixel_x = start_grid_x * square_size
     start_pixel_y = start_grid_y * square_size
     end_pixel_x = end_grid_x * square_size
     end_pixel_y = end_grid_y * square_size
     
-    # Animation configurations
     animation_frames = 20 
     clock = pygame.time.Clock()
-    
     Board.board[initial] = '-'
     
-    # 3. Slide the piece step-by-step along the path
     for frame in range(animation_frames + 1):
-        # Calculate percent completion (t goes from 0.0 to 1.0)
         t = frame / animation_frames
-        
-        # Linear Interpolation (LERP) formula
         current_x = start_pixel_x + (end_pixel_x - start_pixel_x) * t
         current_y = start_pixel_y + (end_pixel_y - start_pixel_y) * t
         
-        # Redraw the background chess board squares
         for x in range(8):
             for y in range(8):
-                x_coordinate = x * square_size
-                y_coordinate = y * square_size
                 rect = pygame.Surface((square_size, square_size))
-                if (x + y) % 2 == 0:
-                    rect.fill((255, 255, 255))
-                else:
-                    rect.fill((170, 170, 170))
-                screen.blit(rect, (x_coordinate, y_coordinate))
+                if (x + y) % 2 == 0: rect.fill((255, 255, 255))
+                else: rect.fill((170, 170, 170))
+                screen.blit(rect, (x * square_size, y * square_size))
                 
-        # Redraw all OTHER static pieces currently standing on the board
+        # 2. Redraw OTHER static pieces using the Mirror Helper
         for i in range(120):
-            if Board.board[i] == 'x' or Board.board[i] == '-':
-                continue
+            if Board.board[i] == 'x' or Board.board[i] == '-': continue
             piece_to_draw = pieces[Board.board[i]]
-            x_pos = ((i % 10) - 1) * square_size
-            y_pos = ((i - 20) // 10) * square_size
-            screen.blit(piece_to_draw, (x_pos, y_pos))
+            rx, ry = get_render_pos((i % 10) - 1, (i - 20) // 10)
+            screen.blit(piece_to_draw, (rx * square_size, ry * square_size))
             
-        # Draw the single animated piece floating smoothly over the squares
         screen.blit(pieces[piece], (current_x, current_y))
-        
-        # Refresh the screen and cap the animation updates at 60 frames per second
         pygame.display.flip()
         clock.tick(60)
         
-    # Restore the piece to its original spot in the array so move_performer can run smoothly
     Board.board[initial] = piece
 
-playerOne = True #Player One is white and True means Human else AI
-playerTwo = False #Player Two is Black and True means Human else AI
+menu_font = pygame.font.SysFont(None, int(width * 0.08))
+sub_font = pygame.font.SysFont(None, int(width * 0.05))
+
+
+color_chosen = False
+playerOne = True 
+playerTwo = False 
+board_flipped = False
+while not color_chosen:
+    screen.fill((40, 40, 40)) 
+    
+    title = menu_font.render("Choose Your Color", True, (255, 255, 255))
+    text_w = sub_font.render("Press 'W' to play White", True, (200, 200, 200))
+    text_b = sub_font.render("Press 'B' to play Black", True, (200, 200, 200))
+    
+    screen.blit(title, (width//2 - title.get_width()//2, height//3))
+    screen.blit(text_w, (width//2 - text_w.get_width()//2, height//2))
+    screen.blit(text_b, (width//2 - text_b.get_width()//2, height//2 + int(height * 0.08)))
+    
+    pygame.display.flip()
+    
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_w:
+                playerOne = True 
+                playerTwo = False 
+                color_chosen = True
+                board_flipped = False
+            elif event.key == pygame.K_b:
+                playerOne = False 
+                playerTwo = True  
+                color_chosen = True
+                board_flipped = True
  
 running = True
 while running : 
@@ -420,39 +437,51 @@ while running :
 
         #when we pick up a piece from a square
         elif (game_is_over==False and dragging==False and event.type == pygame.MOUSEBUTTONDOWN and is_human_move):
-            mouse_x,mouse_y=pygame.mouse.get_pos()
-            drag_x,drag_y=mouse_x,mouse_y
-            mouse_x = mouse_x//square_size
-            mouse_y = mouse_y//square_size
-            initial_index = mouse_y*10+20 + mouse_x + 1
+            mouse_x, mouse_y = pygame.mouse.get_pos()
+            drag_x, drag_y = mouse_x, mouse_y
+            
+            # Translate screen pixels backward to the Logical Grid!
+            grid_x = mouse_x // square_size
+            grid_y = mouse_y // square_size
+            if board_flipped:
+                grid_x, grid_y = 7 - grid_x, 7 - grid_y
+                
+            initial_index = grid_y*10+20 + grid_x + 1
+            
             if(Board.board[initial_index]!='x' and Board.board[initial_index]!='-'):
                 dragged_piece = Board.board[initial_index]
 
                 is_valid_turn = True
-                if(Board.counter%2==0 and dragged_piece.islower()):
-                    is_valid_turn = False
-                elif(Board.counter%2==1 and dragged_piece.isupper()):
-                    is_valid_turn = False
+                if(Board.counter%2==0 and dragged_piece.islower()): is_valid_turn = False
+                elif(Board.counter%2==1 and dragged_piece.isupper()): is_valid_turn = False
 
                 if (is_valid_turn == True):
-                    current_legal_moves = Board.legal_moves(dragged_piece,mouse_x,mouse_y)
+                    # Always pass logical coordinates to the engine
+                    current_legal_moves = Board.legal_moves(dragged_piece, grid_x, grid_y)
                     Board.board[initial_index]='-'
                     dragging = True
+                    logical_drag_x = grid_x
+                    logical_drag_y = grid_y
                 else:
                     Board.board[initial_index]=dragged_piece
         
-        #when we are dargging the piece
+        #when we are dragging the piece
         elif (game_is_over == False and dragging==True and event.type == pygame.MOUSEMOTION and is_human_move):
             drag_x,drag_y = pygame.mouse.get_pos()
 
         #When we put the piece in a square
         elif (game_is_over==False and dragging==True and event.type ==pygame.MOUSEBUTTONUP and is_human_move):
-            mouse_x,mouse_y = pygame.mouse.get_pos()
-            mouse_x = mouse_x//square_size
-            mouse_y = mouse_y//square_size
-            final_index = mouse_y*10+20 + mouse_x + 1
+            mouse_x, mouse_y = pygame.mouse.get_pos()
+            
+            # Translate drop target backwards to the Logical Grid!
+            grid_x = mouse_x // square_size
+            grid_y = mouse_y // square_size
+            if board_flipped:
+                grid_x, grid_y = 7 - grid_x, 7 - grid_y
+                
+            final_index = grid_y*10+20 + grid_x + 1
 
-            is_promoting = ( (dragged_piece == 'P' and mouse_y == 0) or (dragged_piece == 'p' and mouse_y == 7) )
+            is_promoting = ((dragged_piece == 'P' and grid_y == 0) or (dragged_piece == 'p' and grid_y == 7))
             if is_promoting:
                 matched = None
                 for m in current_legal_moves:
@@ -465,7 +494,7 @@ while running :
                     Board.board[initial_index] = dragged_piece
                     dragging = False
                     continue
-            #putting the piece back to the original place to generate move_id correctly
+                    
             Board.board[initial_index] = dragged_piece
             if(Board.board[final_index]!='x'):
                 attempted_move = Move(initial_index,final_index,Board.board)  
@@ -475,7 +504,7 @@ while running :
                 engine_move = current_legal_moves[list_idx]
                 move_performer(engine_move)
                                 
-            dragging = False 
+            dragging = False
 
     for x in range (8):
         for y in range (8) :
@@ -489,7 +518,7 @@ while running :
             screen.blit(rect,(x_coordinate,y_coordinate))
 
     if(dragging == True):
-        square_coloring(mouse_x,mouse_y)
+        square_coloring(logical_drag_x, logical_drag_y)
 
     if(black_king_under_check == True or white_king_under_check == True):
         coloring_check()
@@ -499,9 +528,8 @@ while running :
             continue
         elif(Board.board[i]!='-'):
             piece_to_draw = pieces[Board.board[i]]
-            x_pos = ((i%10)-1)*square_size
-            y_pos = ((i-20)//10)* square_size
-            screen.blit(piece_to_draw,(x_pos,y_pos))
+            rx, ry = get_render_pos((i%10)-1, (i-20)//10)
+            screen.blit(piece_to_draw, (rx * square_size, ry * square_size))
 
     if(is_pawn_promotion):
         promotion_list = []
